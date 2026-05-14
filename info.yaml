@@ -1,4 +1,7 @@
 # Tiny Tapeout project information — TRI-1 Nano
+# https://tinytapeout.com/specs/info_yaml/
+yaml_version: 6
+
 project:
   title:        "TRI-1 Nano — Single-tile Trinity GF16 MAC"
   author:       "Dmitrii Vasilev"
