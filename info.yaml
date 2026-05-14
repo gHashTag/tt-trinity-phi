@@ -1,7 +1,4 @@
-# TinyTapeout info.yaml — TRI-1 Nano
-# https://tinytapeout.com/specs/info_yaml/
-yaml_version: 6
-
+# Tiny Tapeout project information — TRI-1 Nano
 project:
   title:        "TRI-1 Nano — Single-tile Trinity GF16 MAC"
   author:       "Dmitrii Vasilev"
@@ -25,11 +22,11 @@ project:
   top_module:   "tt_um_trinity_nano"
 
   source_files:
-    - "src/gf16_add.v"
-    - "src/gf16_mul.v"
-    - "src/gf16_dot4.v"
-    - "src/trinity_gf16_tile.v"
-    - "src/tt_um_trinity_nano.v"
+    - "tt_um_trinity_nano.v"
+    - "gf16_mul.v"
+    - "gf16_add.v"
+    - "gf16_dot4.v"
+    - "trinity_gf16_tile.v"
 
 pinout:
   ui[0]: "load_mode (0=canonical default, 1=packet path)"
