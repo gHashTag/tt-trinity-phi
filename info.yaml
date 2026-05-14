@@ -1,0 +1,58 @@
+# TinyTapeout info.yaml — TRI-1 Nano
+# https://tinytapeout.com/specs/info_yaml/
+yaml_version: 6
+
+project:
+  title:        "TRI-1 Nano — Single-tile Trinity GF16 MAC"
+  author:       "Dmitrii Vasilev"
+  discord:      "ghashtag"
+  description:  >
+    Smallest SKU of the TRI-1 Triad (Nano / Mid / Max) — a single-tile
+    Trinity GF16(2^4) ternary dot4 MAC. On reset the chip drives the
+    canonical dot4(1.0, 2.0, 3.0, 4.0) = 0x47C0 directly onto
+    {uio_out, uo_out}, matching the same constant emitted by Mid
+    (tt_um_ghtag_trinity_gf16) and Max (tt_um_trinity_max). This is the
+    cross-die anchor for the TG-TRIAD-X ledger (PhD Theorem 36.1).
+    R-SI-1: zero `*` operators in synthesisable RTL.
+    Anchor: phi^2 + phi^-2 = 3. DOI: 10.5281/zenodo.19227877.
+  language:     "Verilog"
+  clock_hz:     50000000
+
+  # TinyTapeout tile area sizing — 1×1 is the minimum and the right size
+  # for a single GF16 tile + canonical default datapath.
+  tiles:        "1x1"
+
+  top_module:   "tt_um_trinity_nano"
+
+  source_files:
+    - "src/gf16_add.v"
+    - "src/gf16_mul.v"
+    - "src/gf16_dot4.v"
+    - "src/trinity_gf16_tile.v"
+    - "src/tt_um_trinity_nano.v"
+
+pinout:
+  ui[0]: "load_mode (0=canonical default, 1=packet path)"
+  ui[1]: "rsvd"
+  ui[2]: "rsvd"
+  ui[3]: "rsvd"
+  ui[4]: "rsvd"
+  ui[5]: "rsvd"
+  ui[6]: "compute_strobe (rising edge issues COMPUTE)"
+  ui[7]: "load_lane_strobe (rising edge advances lane, latches uio_in as operand byte)"
+  uo[0]: "result[0] (canonical 0x47C0 by default)"
+  uo[1]: "result[1]"
+  uo[2]: "result[2]"
+  uo[3]: "result[3]"
+  uo[4]: "result[4]"
+  uo[5]: "result[5]"
+  uo[6]: "result[6]"
+  uo[7]: "result[7]"
+  uio[0]: "result[8]"
+  uio[1]: "result[9]"
+  uio[2]: "result[10]"
+  uio[3]: "result[11]"
+  uio[4]: "result[12]"
+  uio[5]: "result[13]"
+  uio[6]: "result[14]"
+  uio[7]: "result[15]"
