@@ -3,7 +3,7 @@
 yaml_version: 6
 
 project:
-  title:        "TRI-1 Nano — Single-tile Trinity GF16 MAC"
+  title:        "TRI-1 Phi — Trinity φ-anchor 1×1 Lucas POST"
   author:       "Dmitrii Vasilev"
   discord:      "ghashtag"
   description:  >

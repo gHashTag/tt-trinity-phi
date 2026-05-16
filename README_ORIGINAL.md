@@ -1,34 +1,3 @@
-# TRI-1 Phi — Trinity φ-anchor
-
-[![Submit](https://img.shields.io/badge/TTSKY26b-Phi%20anchor-orange)](https://app.tinytapeout.com/shuttles/ttsky26b)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Sacred](https://img.shields.io/badge/sacred--constant-%CF%86%20%E2%89%88%201.61803-purple)](#sacred-formula)
-
-> One of three neurons of **Trinity TRI-NET** — three sacred constants embodied in silicon:
->
-> - **φ-anchor** → **THIS REPO** (1×1, Lucas POST proving φ²+φ⁻²=3 on power-up, canonical seed 0x47C0)
-> - **e-engine** → [tt-trinity-euler](https://github.com/gHashTag/tt-trinity-euler) (8×2, 18 SUPER-CROWN modules)
-> - **γ-surface** → [tt-trinity-gamma](https://github.com/gHashTag/tt-trinity-gamma) (8×4, 32 PE full mesh)
->
-> Apache-2.0 · ternary {−1,0,+1} · SKY130A · DOI [10.5281/zenodo.19227877](https://doi.org/10.5281/zenodo.19227877)
-
-## Sacred Formula
-
-`V = n × 3^k × π^m × φ^p × e^q × γ^r × C^t × G^u`
-
-This chip is the **φ^p** factor — the golden anchor that all Trinity computation
-references. Single ternary cell. Power-up emits the canonical hash **0x47C0** as
-witness of `dot4(1,2,3,4)` over GF(16), proving the Trinity identity φ²+φ⁻²=3
-through Lucas recurrence.
-
-## Renamed from tt-trinity-nano
-
-This repository was renamed from `tt-trinity-nano` on 2026-05-16 as part of the
-Trinity TRI-NET sacred-constant naming. The old URL redirects to this one — old
-clones/forks continue to work.
-
----
-
 # TRI-1 Nano — Single-tile Trinity GF16 MAC
 
 > 🌳 Trinity role: **BRANCH-SILICON** — TTSKY26b shuttle SKU 1 of 3.
