@@ -30,9 +30,6 @@ project:
     - "gf16_add.v"
     - "gf16_dot4.v"
     - "trinity_gf16_tile.v"
-    - "phi_anchor_post.v"
-    - "lucas_rom.v"
-    - "blake3_anchor.v"
 
 pinout:
   ui[0]: "load_mode (0=canonical default, 1=packet path)"
