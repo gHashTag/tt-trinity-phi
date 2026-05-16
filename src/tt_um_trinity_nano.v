@@ -151,9 +151,30 @@ module tt_um_trinity_nano (
     // not used in v1; Mid/Max can use a bidi protocol via uio_oe gating
     // later if needed).
     // ------------------------------------------------------------------
+    // =================================================================
+    // TRI NET friend/foe handshake (MY_ANCHOR = phi = 8'hCF)
+    // uio[0]=tx_bit (OUT), uio[1]=rx_bit (IN), uio[2]=friend, uio[3]=valid
+    // uio[7:4] preserved for legacy {uio_out, uo_out} == 0x47C0 anchor.
+    // =================================================================
+    wire ff_tx, ff_friend, ff_valid;
+    trinity_friend_foe #(.MY_ANCHOR(8'hCF)) u_friend_foe (
+        .clk             (clk),
+        .rst_n           (rst_n),
+        .rx_bit          (uio_in[1]),
+        .tx_bit          (ff_tx),
+        .friend_detected (ff_friend),
+        .handshake_valid (ff_valid)
+    );
+
+    wire [7:0] uio_legacy =
+        load_mode ? tile_dbg_result[15:8] : canonical_dot[15:8];
+
     assign uo_out  = load_mode ? tile_dbg_result[7:0]  : canonical_dot[7:0];
-    assign uio_out = load_mode ? tile_dbg_result[15:8] : canonical_dot[15:8];
-    assign uio_oe  = 8'hFF;
+    // uio[7:4] keeps legacy mux (preserves canonical 0x47C0 test);
+    // uio[3:0] carries TRI NET friend/foe with uio[1] as RX input.
+    assign uio_out = {uio_legacy[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
+    // uio[1] is RX bit (input); all others output.
+    assign uio_oe  = 8'b1111_1101;
 
     // Lint tie-offs
     wire _unused_ena   = ena;
