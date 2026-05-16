@@ -93,6 +93,27 @@ cross-die anchor of **TG-TRIAD-X (Theorem 36.1)** in
 | **R-SI-5** | LVS-clean | OpenLane2 LVS |
 | **R-SI-6** | Apache-2.0 only, no vendor IP | LICENSE + source headers |
 
+---
+
+## 🏆 Competitive Differentiators — Minimal Chip, Maximum Validation
+
+| # | Differentiator | This Chip (φ-anchor) | Hailo-8 | MediaTek D9400 NPU890 | QC Cloud AI 100 Ultra | Axelera Metis M.2 | Google Coral Edge TPU |
+|---|----------------|-----------------------|---------|---------------------|---------------------|-------------------|-------------------|
+| 1 | Native ternary {-1,0,+1} MAC | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 2 | On-chip BLAKE3 receipt signer | ❌ (minimal) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 3 | POST via φ²+φ⁻²=3 Lucas chain | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 4 | 0 DSP / 0 new `*` (R-SI-1) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 5 | BitNet b1.58 ternary MLP | ❌ (minimal) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 6 | RING27 3³ ternary memory | ❌ (minimal) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 7 | Trinity 9-op ternary ALU (t27 ISA) | ❌ (minimal) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 8 | On-chip BPB / cross-entropy | ❌ (minimal) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 9 | Apache-2.0 + fully open PDK (SKY130A) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 10 | DOI-anchored + Coq-verified | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+**Note:** As the smallest (1×1) TRI-NET member, φ-anchor validates the base arithmetic layer. Full SUPER-CROWN capabilities (BLAKE3, BitNet, RING27, ALU, BPB) are available in e-engine (8×2) and γ-surface (8×4).
+
+**Still unique:** No competitor has even the first advantage (native ternary MAC) — all use binary/int8 quantization.
+
 ## Build
 
 ```bash
