@@ -31,6 +31,7 @@ project:
     - "gf16_dot4.v"
     - "trinity_gf16_tile.v"
     - "trinity_friend_foe.v"
+    - "sacred_constants_rom.v"
 
 pinout:
   ui[0]: "load_mode (0=canonical default, 1=packet path)"

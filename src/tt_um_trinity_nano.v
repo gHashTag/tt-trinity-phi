@@ -154,7 +154,7 @@ module tt_um_trinity_nano (
     // =================================================================
     // TRI NET friend/foe handshake (MY_ANCHOR = phi = 8'hCF)
     // uio[0]=tx_bit (OUT), uio[1]=rx_bit (IN), uio[2]=friend, uio[3]=valid
-    // uio[7:4] preserved for legacy {uio_out, uo_out} == 0x47C0 anchor.
+    // uio[7:4] = legacy/sacred mux (preserves 0x47C0 anchor + sacred ROM).
     // =================================================================
     wire ff_tx, ff_friend, ff_valid;
     trinity_friend_foe #(.MY_ANCHOR(8'hCF)) u_friend_foe (
@@ -166,19 +166,51 @@ module tt_um_trinity_nano (
         .handshake_valid (ff_valid)
     );
 
-    wire [7:0] uio_legacy =
-        load_mode ? tile_dbg_result[15:8] : canonical_dot[15:8];
+    // ------------------------------------------------------------------
+    // Sacred Constants ROM — PHI PhD constants (Glava 3+7+28)
+    // Sacred read mode: ui_in[7]=1 and load_mode=0 (note: load_lane_s is
+    // ui_in[7] but only active when load_mode=1, so no pin conflict).
+    //   addr = {1'b0, ui_in[6:1]}  (6-bit, covers first 64 constants)
+    //   uo_out = sacred_val[7:0]
+    // Legacy 0x47C0 canonical path kept intact when load_mode=0 & ui_in[7]=0.
+    // ------------------------------------------------------------------
+    reg  [6:0] sacred_addr_r;
+    wire [7:0] sacred_val;
 
-    assign uo_out  = load_mode ? tile_dbg_result[7:0]  : canonical_dot[7:0];
-    // uio[7:4] keeps legacy mux (preserves canonical 0x47C0 test);
-    // uio[3:0] carries TRI NET friend/foe with uio[1] as RX input.
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) sacred_addr_r <= 7'h00;
+        else        sacred_addr_r <= {1'b0, ui_in[6:1]};
+    end
+
+    sacred_constants_rom u_sacred_rom (
+        .addr (sacred_addr_r),
+        .val  (sacred_val)
+    );
+
+    wire sacred_mode = ui_in[7] && !load_mode;
+
+    // ------------------------------------------------------------------
+    // Output pin mux:
+    //   load_mode=0 & ui_in[7]=0 -> 0x47C0 (TG-TRIAD-X canonical anchor)
+    //   load_mode=0 & ui_in[7]=1 -> sacred ROM val on uo_out
+    //   load_mode=1              -> tile_dbg_result (packet path)
+    // uio[7:4] follows legacy/sacred mux; uio[3:0] always carries TRI NET
+    // friend/foe with uio[1] as RX input (uio_oe = 8'b1111_1101).
+    // ------------------------------------------------------------------
+    wire [7:0] uio_legacy =
+        load_mode   ? tile_dbg_result[15:8] :
+        sacred_mode ? 8'h00                 :
+                      canonical_dot[15:8];
+
+    assign uo_out  = load_mode   ? tile_dbg_result[7:0] :
+                     sacred_mode ? sacred_val           :
+                                   canonical_dot[7:0];
     assign uio_out = {uio_legacy[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
     // uio[1] is RX bit (input); all others output.
     assign uio_oe  = 8'b1111_1101;
 
     // Lint tie-offs
     wire _unused_ena   = ena;
-    wire _unused_ui    = |ui_in[5:1];
     wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
 
 endmodule
