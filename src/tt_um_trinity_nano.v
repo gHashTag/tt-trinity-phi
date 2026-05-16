@@ -219,9 +219,12 @@ module tt_um_trinity_nano (
                      sacred_mode ? sacred_val           :
                      crown_mode  ? crown_byte_out       :
                                    canonical_dot[7:0];
-    assign uio_out = {uio_legacy[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
-    // uio[1] is RX bit (input); all others output.
-    assign uio_oe  = 8'b1111_1101;
+    // Canonical mode: use full uio_legacy for TG-TRIAD-X anchor 0x47C0
+    // Live mode: carry TRI NET friend/foe handshake bits
+    assign uio_out = !load_mode ? uio_legacy :
+                                    {uio_legacy[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
+    // uio[1] is RX bit (input) in live mode; all outputs in canonical mode
+    assign uio_oe  = !load_mode ? 8'hFF : 8'b1111_1101;
 
     // Lint tie-offs
     wire _unused_ena   = ena;

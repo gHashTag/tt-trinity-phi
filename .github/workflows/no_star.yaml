@@ -1,0 +1,26 @@
+name: R-SI-1 no-star check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  no_star:
+    name: R-SI-1 — no new * operators in RTL
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for new * operators
+        run: |
+          # Grandfathered: gf16_mul.v (legacy GF16 Karatsuba)
+          # R-SI-1: zero NEW * operators in synthesisable RTL
+          if grep -nE '\*' src/*.v | grep -v gf16_mul.v | \
+             grep -v '//' | grep -v '(/\*.*\*/)' | \
+             grep -vE '@\(\s*\*\s*\)' | grep -vE '\([^)]*\*[0-9]'; then
+            echo "R-SI-1 FAIL: found new * operators"
+            exit 1
+          else
+            echo "R-SI-1 PASS: no new * operators found."
+          fi
