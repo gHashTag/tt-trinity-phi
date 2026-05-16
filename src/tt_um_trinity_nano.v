@@ -21,10 +21,12 @@
 //     pulses of ui_in[7]); a host pulse of ui_in[6] then issues a COMPUTE
 //     packet, and the tile latches the dot4 result. The tile's debug_result
 //     output is muxed onto the pins when ui_in[0]=load_mode=1.
+//   - Crown47 read mode: uio_in[7]=1 with load_mode=0 & sacred_mode=0 -
+//     selects one of 4 bytes of one of 47 Trinity constants (Crown of TRI NET).
 //
 // R-SI-1: zero new `*` operators in synthesisable RTL — gf16 mul/add reused
 // from Mid (combinational, XOR-based, no DSP, no multiplier macros).
-// Lines of synthesisable RTL in this top: ~120.
+// Lines of synthesisable RTL in this top: ~140.
 
 `include "trinity_packet.vh"
 
@@ -140,21 +142,10 @@ module tt_um_trinity_nano (
         .dbg_result (tile_dbg_result)
     );
 
-    // ------------------------------------------------------------------
-    // Output pin mux:
-    //   load_mode=0 -> {uio_out, uo_out} = canonical 0x47C0 (TG-TRIAD-X anchor)
-    //   load_mode=1 -> {uio_out, uo_out} = tile_dbg_result (post-COMPUTE)
-    // uio_oe = 0xFF (all 8 uio bits drive out; host reads them as data).
-    // For load_mode=1 the host drives operands on uio_in BEFORE asserting
-    // the strobes; uio is conceptually a one-way bus per clock cycle (TT
-    // semantics — oe is static per top, switching direction mid-frame is
-    // not used in v1; Mid/Max can use a bidi protocol via uio_oe gating
-    // later if needed).
-    // ------------------------------------------------------------------
     // =================================================================
     // TRI NET friend/foe handshake (MY_ANCHOR = phi = 8'hCF)
     // uio[0]=tx_bit (OUT), uio[1]=rx_bit (IN), uio[2]=friend, uio[3]=valid
-    // uio[7:4] = legacy/sacred mux (preserves 0x47C0 anchor + sacred ROM).
+    // uio[7:4] = legacy/sacred/crown47 mux (preserves 0x47C0 anchor + ROMs).
     // =================================================================
     wire ff_tx, ff_friend, ff_valid;
     trinity_friend_foe #(.MY_ANCHOR(8'hCF)) u_friend_foe (
@@ -168,11 +159,9 @@ module tt_um_trinity_nano (
 
     // ------------------------------------------------------------------
     // Sacred Constants ROM — PHI PhD constants (Glava 3+7+28)
-    // Sacred read mode: ui_in[7]=1 and load_mode=0 (note: load_lane_s is
-    // ui_in[7] but only active when load_mode=1, so no pin conflict).
+    // Sacred read mode: ui_in[7]=1 and load_mode=0.
     //   addr = {1'b0, ui_in[6:1]}  (6-bit, covers first 64 constants)
     //   uo_out = sacred_val[7:0]
-    // Legacy 0x47C0 canonical path kept intact when load_mode=0 & ui_in[7]=0.
     // ------------------------------------------------------------------
     reg  [6:0] sacred_addr_r;
     wire [7:0] sacred_val;
@@ -189,21 +178,46 @@ module tt_um_trinity_nano (
 
     wire sacred_mode = ui_in[7] && !load_mode;
 
+    // ==================================================================
+    // CROWN47 ROM — Crown of TRI NET (Crown42 + 5 Tegmark-31 fillers).
+    // 47 Trinity constants in 24-bit pseudo-float (Vasilev-Pellis v22.12).
+    // Activated by uio_in[7]=1 when neither load_mode nor sacred_mode are
+    // active. Provides ONE byte per cycle:
+    //   ui_in[6:0]   = crown_addr (0..46)
+    //   uio_in[6:5]  = byte_sel (0=mant_lo 1=mant_hi 2=exp 3=tier_flag)
+    // Combinational - same-cycle byte on uo_out.
+    // Anchor phi^2+phi^-2=3 . DOI 10.5281/zenodo.19227877
+    // R-SI-1 clean. Same module instantiated unchanged in EULER + GAMMA.
+    // ==================================================================
+    wire        crown_mode     = uio_in[7] && !load_mode && !sacred_mode;
+    wire [6:0]  crown_addr     = ui_in[6:0];
+    wire [1:0]  crown_byte_sel = uio_in[6:5];
+    wire [7:0]  crown_byte_out;
+
+    crown47_rom_8bit u_crown47 (
+        .addr     (crown_addr),
+        .byte_sel (crown_byte_sel),
+        .byte_out (crown_byte_out)
+    );
+
     // ------------------------------------------------------------------
-    // Output pin mux:
-    //   load_mode=0 & ui_in[7]=0 -> 0x47C0 (TG-TRIAD-X canonical anchor)
-    //   load_mode=0 & ui_in[7]=1 -> sacred ROM val on uo_out
-    //   load_mode=1              -> tile_dbg_result (packet path)
-    // uio[7:4] follows legacy/sacred mux; uio[3:0] always carries TRI NET
-    // friend/foe with uio[1] as RX input (uio_oe = 8'b1111_1101).
+    // Output pin mux (priority order):
+    //   load_mode=1   -> tile_dbg_result (packet path)
+    //   sacred_mode=1 -> sacred ROM val on uo_out
+    //   crown_mode=1  -> Crown47 byte on uo_out
+    //   else          -> 0x47C0 canonical anchor (T4 backward compat)
+    // uio[7:4] follows legacy/sacred/crown mux; uio[3:0] always carries
+    // TRI NET friend/foe with uio[1] as RX input (uio_oe = 8'b1111_1101).
     // ------------------------------------------------------------------
     wire [7:0] uio_legacy =
         load_mode   ? tile_dbg_result[15:8] :
         sacred_mode ? 8'h00                 :
+        crown_mode  ? 8'h00                 :
                       canonical_dot[15:8];
 
     assign uo_out  = load_mode   ? tile_dbg_result[7:0] :
                      sacred_mode ? sacred_val           :
+                     crown_mode  ? crown_byte_out       :
                                    canonical_dot[7:0];
     assign uio_out = {uio_legacy[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
     // uio[1] is RX bit (input); all others output.
