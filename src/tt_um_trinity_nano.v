@@ -141,24 +141,74 @@ module tt_um_trinity_nano (
     );
 
     // ------------------------------------------------------------------
-    // Output pin mux:
-    //   load_mode=0 -> {uio_out, uo_out} = canonical 0x47C0 (TG-TRIAD-X anchor)
-    //   load_mode=1 -> {uio_out, uo_out} = tile_dbg_result (post-COMPUTE)
-    // uio_oe = 0xFF (all 8 uio bits drive out; host reads them as data).
-    // For load_mode=1 the host drives operands on uio_in BEFORE asserting
-    // the strobes; uio is conceptually a one-way bus per clock cycle (TT
-    // semantics — oe is static per top, switching direction mid-frame is
-    // not used in v1; Mid/Max can use a bidi protocol via uio_oe gating
-    // later if needed).
+    // Wave-26b SUPER-CROWN trio: φ-anchor POST + Lucas ROM + BLAKE3 signer
+    // Upgrades phi from dot4-only chip into atomic DePIN-signer.
+    // Anchor: φ²+φ⁻²=3 (proven on power-up via Lucas recurrence).
     // ------------------------------------------------------------------
-    assign uo_out  = load_mode ? tile_dbg_result[7:0]  : canonical_dot[7:0];
-    assign uio_out = load_mode ? tile_dbg_result[15:8] : canonical_dot[15:8];
+
+    // L-S1: φ-anchor POST (proves φ²+φ⁻²=3 via Lucas recurrence)
+    wire phi_ok;
+    wire post_done;
+    phi_anchor_post u_phi_post (
+        .clk(clk), .rst_n(rst_n),
+        .phi_ok(phi_ok), .post_done(post_done)
+    );
+
+    // L-S2: Lucas ROM (host-addressable via ui_in[3:1])
+    wire [7:0] lucas_val;
+    wire [2:0] lucas_idx = ui_in[3:1];
+    lucas_rom u_lucas (.idx(lucas_idx), .value(lucas_val));
+
+    // L-S3: BLAKE3 anchor signer — kicked off after POST completes.
+    // Seed message: canonical_dot replicated to fill 512-bit input.
+    reg [511:0] hash_in;
+    reg         hash_start;
+    reg         hash_kicked;
+    wire        hash_done;
+    wire [255:0] hash_digest;
+    wire         hash_ok;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            hash_in     <= 512'b0;
+            hash_start  <= 1'b0;
+            hash_kicked <= 1'b0;
+        end else if (post_done && !hash_kicked) begin
+            hash_in     <= {32{canonical_dot}};
+            hash_start  <= 1'b1;
+            hash_kicked <= 1'b1;
+        end else begin
+            hash_start  <= 1'b0;
+        end
+    end
+    blake3_anchor u_hash (
+        .clk(clk), .rst_n(rst_n),
+        .start(hash_start), .m_in(hash_in),
+        .done(hash_done), .digest(hash_digest),
+        .hash_ok(hash_ok)
+    );
+
+    // ------------------------------------------------------------------
+    // Output pin mux (Wave-26b SUPER-CROWN):
+    //   load_mode=0 -> {uio_out, uo_out} = canonical_dot XOR'd with
+    //                   BLAKE3 digest LSBs and Lucas ROM byte once POST
+    //                   completes — DePIN-signer atomic output. Until
+    //                   post_done the canonical 0x47C0 remains intact
+    //                   (TG-TRIAD-X cross-die anchor preserved on power-up).
+    //   load_mode=1 -> {uio_out, uo_out} = tile_dbg_result (post-COMPUTE)
+    // ------------------------------------------------------------------
+    wire [7:0]  sign_lo = canonical_dot[7:0]  ^ (hash_done ? hash_digest[7:0]   : 8'h00)
+                                              ^ (phi_ok    ? lucas_val          : 8'h00);
+    wire [7:0]  sign_hi = canonical_dot[15:8] ^ (hash_done ? hash_digest[15:8]  : 8'h00);
+
+    assign uo_out  = load_mode ? tile_dbg_result[7:0]  : sign_lo;
+    assign uio_out = load_mode ? tile_dbg_result[15:8] : sign_hi;
     assign uio_oe  = 8'hFF;
 
     // Lint tie-offs
     wire _unused_ena   = ena;
-    wire _unused_ui    = |ui_in[5:1];
+    wire _unused_ui    = |ui_in[5:4];
     wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
+    wire _unused_hash  = hash_ok | (|hash_digest[255:16]);
 
 endmodule
 
