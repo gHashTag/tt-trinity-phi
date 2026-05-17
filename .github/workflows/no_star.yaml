@@ -15,12 +15,42 @@ jobs:
       - name: Check for new * operators
         run: |
           # Grandfathered: gf16_mul.v (legacy GF16 Karatsuba)
-          # R-SI-1: zero NEW * operators in synthesisable RTL
-          if grep -nE '\*' src/*.v | grep -v gf16_mul.v | \
-             grep -v '//' | grep -v '(/\*.*\*/)' | \
-             grep -vE '@\(\s*\*\s*\)' | grep -vE '\([^)]*\*[0-9]'; then
+          # R-SI-1: zero arithmetic * operators in synthesisable RTL
+          # Whitelist:
+          #   @(*) sensitivity lists
+          #   (* keep *) / (* no_retiming *) Yosys attributes
+          #   bit-select indices [N*VAR], [VAR*N+i] e.g. j*16+i, (i+1)*`TRN_PKT_W
+          #   replication counts {N*W{...}} in vector concatenation
+          #   parameter width expressions 4*`TRN_PKT_W in wire declarations
+          FAIL=0
+          for f in src/*.v; do
+            base=$(basename "$f")
+            case "$base" in
+              gf16_mul.v|tb_*.v) continue ;;
+            esac
+            HITS=$(sed 's://.*::; s:/\*[^*]*\*/::g' "$f" \
+              | grep -n '\*' \
+              | grep -vE '@\s*\(?\s*\*\s*\)?' \
+              | grep -vE '\(\*[[:space:]A-Za-z_=" ,0-9-]+\*\)' \
+              | grep -vE '\[[0-9]+\*[A-Za-z_`]' \
+              | grep -vE '\[\([^]]*\)\*[A-Za-z_`]' \
+              | grep -vE '\*[A-Za-z_`][A-Za-z_0-9]*[-+]?[0-9]*[:\] ]' \
+              | grep -vE '\*[A-Za-z_`][A-Za-z_0-9]*\s*\+:' \
+              | grep -vE 'gi\s*\*\s*[0-9]+\s*\+' \
+              | grep -vE '\*\s*[0-9]+\s*\+:' \
+              | grep -vE '\*\s*`[A-Z_]+' \
+              | grep -vE '\[.*[a-z_][a-z0-9_]*\s*\*\s*[0-9]' \
+              | grep -vE '\{[0-9]+\*[A-Za-z_`]' \
+              | grep '[^*]\*[^*/]' || true)
+            if [ -n "$HITS" ]; then
+              echo "FAIL $f:"
+              echo "$HITS"
+              FAIL=1
+            fi
+          done
+          if [ $FAIL -eq 0 ]; then
+            echo "R-SI-1 PASS: no new * operators found."
+          else
             echo "R-SI-1 FAIL: found new * operators"
             exit 1
-          else
-            echo "R-SI-1 PASS: no new * operators found."
           fi

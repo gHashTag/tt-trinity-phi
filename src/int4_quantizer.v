@@ -32,8 +32,18 @@ module int4_quantizer (
             default: scale = 16'h0800;
         endcase
 
-        // Scale: scaled = (fp16_in * scale) >> 15
-        scaled = (fp16_in * scale) >>> 15;
+        // Scale: scaled = fp16_in >> scale_exp (R-SI-1: shift instead of *)
+        case (scale_exp)
+            4'd0:  scaled = fp16_in;
+            4'd1:  scaled = {{1{fp16_in[15]}}, fp16_in[15:1]};
+            4'd2:  scaled = {{2{fp16_in[15]}}, fp16_in[15:2]};
+            4'd3:  scaled = {{3{fp16_in[15]}}, fp16_in[15:3]};
+            4'd4:  scaled = {{4{fp16_in[15]}}, fp16_in[15:4]};
+            4'd5:  scaled = {{5{fp16_in[15]}}, fp16_in[15:5]};
+            4'd6:  scaled = {{6{fp16_in[15]}}, fp16_in[15:6]};
+            4'd7:  scaled = {{7{fp16_in[15]}}, fp16_in[15:7]};
+            default: scaled = {{4{fp16_in[15]}}, fp16_in[15:4]};
+        endcase
 
         // Add zero point: zeroed = scaled + zero_point
         // zero_point is signed 3-bit [-4, 3]
@@ -88,8 +98,18 @@ module int4_dequantizer (
         else
             int4_signed = {1'b0, int4_in[2:0]};
 
-        // Dequant: fp16_out = int4_signed * scale
-        fp16_out = int4_signed * scale;
+        // Dequant: fp16_out = int4_signed << scale_exp (R-SI-1: shift instead of *)
+        case (scale_exp)
+            4'd0:  fp16_out = int4_signed;
+            4'd1:  fp16_out = {int4_signed[14:0], 1'b0};
+            4'd2:  fp16_out = {int4_signed[13:0], 2'b0};
+            4'd3:  fp16_out = {int4_signed[12:0], 3'b0};
+            4'd4:  fp16_out = {int4_signed[11:0], 4'b0};
+            4'd5:  fp16_out = {int4_signed[10:0], 5'b0};
+            4'd6:  fp16_out = {int4_signed[9:0],  6'b0};
+            4'd7:  fp16_out = {int4_signed[8:0],  7'b0};
+            default: fp16_out = {int4_signed[11:0], 4'b0};
+        endcase
     end
 
 endmodule

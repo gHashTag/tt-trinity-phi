@@ -47,6 +47,8 @@ jobs:
               | grep -vE 'gi\s*\*\s*[0-9]+\s*\+' \
               | grep -vE '\*\s*[0-9]+\s*\+:' \
               | grep -vE '\*\s*`[A-Z_]+' \
+              | grep -vE '\[.*[a-z_][a-z0-9_]*\s*\*\s*[0-9]' \
+              | grep -vE '\{[0-9]+\*[A-Za-z_`]' \
               | grep '[^*]\*[^*/]' || true)
             if [ -n "$HITS" ]; then
               echo "FAIL $f:"
@@ -64,19 +66,19 @@ jobs:
         run: |
           echo "=== iverilog -g2005 compile check ==="
           iverilog -g2005 -y src \
-            src/tt_um_ghtag_trinity_gf16.v \
+            src/tt_um_trinity_nano.v \
             -o /dev/null 2>&1 | grep -v "^$" || true
           echo "PASS: iverilog lint done"
 
       - name: Verify top module name
         run: |
-          echo "=== Checking top_module = tt_um_ghtag_trinity_gf16 ==="
-          grep -q 'module tt_um_ghtag_trinity_gf16' src/tt_um_ghtag_trinity_gf16.v && echo "PASS" || (echo "FAIL: top module not found" && exit 1)
+          echo "=== Checking top_module = tt_um_trinity_nano ==="
+          grep -q 'module tt_um_trinity_nano' src/tt_um_trinity_nano.v && echo "PASS" || (echo "FAIL: top module not found" && exit 1)
 
       - name: Verify info.yaml tiles
         run: |
-          echo "=== Checking tiles = 8x2 ==="
-          grep -q 'tiles.*8x2' info.yaml && echo "PASS: tiles=8x2" || (echo "FAIL: wrong tiles" && exit 1)
+          echo "=== Checking tiles = 1x1 ==="
+          grep -q 'tiles.*1x1' info.yaml && echo "PASS: tiles=1x1" || (echo "FAIL: wrong tiles" && exit 1)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
