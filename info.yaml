@@ -1,5 +1,7 @@
-# Tiny Tapeout project information — TRI-1 Nano
+# Tiny Tapeout project information — TRI-1 Phi Anchor
 # https://tinytapeout.com/specs/info_yaml/
+#
+# R-SI-1 verified: zero `*` operators in synthesisable RTL.
 yaml_version: 6
 
 project:
