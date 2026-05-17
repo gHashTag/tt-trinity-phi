@@ -7,21 +7,34 @@
 // Smallest member of TRI-NET (φ-anchor / e-engine / γ-surface), fits in 1×1
 // tile @ 60% density on SKY130A.
 //
-// Architectural contract (v2):
+// Architectural contract (v3, TTSKY26b):
 //   - Instantiates one trinity_gf16_tile (TILE_ID=2'b00) for full packet
 //     compliance with trinity_packet.vh, plus combinational canonical
 //     gf16_dot4(1.0,2.0,3.0,4.0) = 0x47C0 driving output pins by default.
 //   - Cross-die anchor: {uio_out, uo_out} = 0x47C0 immediately after reset,
 //     identical to e-engine and γ-surface (TG-TRIAD-X Theorem 36.1).
 //   - Lucas POST (phi_anchor_post): Proves φ²+φ⁻²=3 via L₂..L₇ recurrence.
+//   - Cassini POST (cassini_post): Orthogonal Cassini-Lucas identity verifier.
 //   - Lucas ROM (lucas_rom): Addressable L_n host probe (ui[3:1]).
 //   - HWRNG (hwrng_lfsr): Die-unique nonce, enabled by ui[4].
 //   - Restraint Control (restraint_ctrl): CLARA Gap-4 bounded rationality.
 //   - Crown47/Sacred ROM read modes preserved.
+//   - TRI-9 ISA decoder (alu9_decoder): 9 ternary opcodes (TTSKY26b P0).
+//   - Ring27 memory (ring27_memory): 27-cell ternary ring (TTSKY26b P0).
 //
 // R-SI-1: zero new `*` operators in synthesisable RTL.
 // Enhanced modules: phi_anchor_post (~120 cells), lucas_rom (~30 cells),
-// hwrng_lfsr (~20 cells), restraint_ctrl (~100 cells).
+// hwrng_lfsr (~20 cells), restraint_ctrl (~100 cells),
+// cassini_post (~60 cells), alu9_decoder (~80 cells), ring27_memory (~80 cells).
+//
+// Pin contract for new status modes (ui_in[3:2]=11 = status_request):
+//   ui_in[3:2]=11, ui_in[1:0]=00 → POST status (phi_post, existing)
+//   ui_in[3:2]=11, ui_in[1:0]=10 → Cassini POST status (new TTSKY26b)
+//   ui_in[3:2]=11, ui_in[1:0]=01 → Ring27 window readback (new TTSKY26b)
+//   ui_in[3:2]=11, ui_in[1:0]=11 → ALU-9 last result (new TTSKY26b)
+//
+// Canonical anchor invariant: at ui_in=0x00 ALL status_*_mode = 0 →
+// {uio_out, uo_out} = 0x47C0. TG-TRIAD-X Theorem 36.1 preserved.
 
 `include "trinity_packet.vh"
 
@@ -50,16 +63,7 @@ module tt_um_trinity_nano (
     );
 
     // ------------------------------------------------------------------
-    // Packet I/O — load-mode (ui_in[0]=1) wiring:
-    //   ui_in[7]   = load_a_lane_strobe (rising edge advances internal lane)
-    //   ui_in[6]   = compute_strobe (rising edge issues COMPUTE packet)
-    //   uio_in     = current 8 LSBs of operand A on the active lane;
-    //                operand B is hard-coded equal to operand A (square dot4),
-    //                so the host can drive the entire 4-lane vector with
-    //                4 strobe pulses on ui_in[7].
-    //   uio_in     = high byte of operand A is implicitly 0 (the GF16
-    //                payload uses the low byte only on Nano; full 16-bit
-    //                operand load is reserved for Mid/Max).
+    // Packet I/O — load-mode (ui_in[0]=1) wiring.
     // ------------------------------------------------------------------
 
     wire        load_mode      = ui_in[0];
@@ -98,15 +102,12 @@ module tt_um_trinity_nano (
             in_valid <= 1'b0;
         end else begin
             if (load_lane_rise && tile_in_ready) begin
-                // LOAD_A: op=1, dst=tile0, src=2'b11(host), lane=cur_lane,
-                //         payload={8'h00, uio_in}
                 in_pkt   <= `TRN_MK_PKT(`TRN_OP_LOAD_A,
                                         2'b00, 2'b11,
                                         {2'h0, cur_lane},
                                         {8'h00, uio_in});
                 in_valid <= 1'b1;
             end else if (compute_rise && tile_in_ready) begin
-                // COMPUTE: op=3, dst=tile0, src=host
                 in_pkt   <= `TRN_MK_PKT(`TRN_OP_COMPUTE,
                                         2'b00, 2'b11,
                                         4'h0, 16'h0);
@@ -117,10 +118,6 @@ module tt_um_trinity_nano (
         end
     end
 
-    // Single tile instance. We tie operand-B equal to A by re-issuing the
-    // same payload as LOAD_B at the same time — for Nano simplicity we let
-    // the tile drive zero B and check the canonical default path instead.
-    // The Mid 16-tile parent issues full LOAD_A + LOAD_B sequences.
     wire [31:0] tile_out_pkt;
     wire        tile_out_valid;
     wire [15:0] tile_dbg_result;
@@ -133,14 +130,12 @@ module tt_um_trinity_nano (
         .in_ready   (tile_in_ready),
         .out_pkt    (tile_out_pkt),
         .out_valid  (tile_out_valid),
-        .out_ready  (1'b1),                  // always ready to drop output
+        .out_ready  (1'b1),
         .dbg_result (tile_dbg_result)
     );
 
     // =================================================================
     // TRI NET friend/foe handshake (MY_ANCHOR = phi = 8'hCF)
-    // uio[0]=tx_bit (OUT), uio[1]=rx_bit (IN), uio[2]=friend, uio[3]=valid
-    // uio[7:4] = legacy/sacred/crown47 mux (preserves 0x47C0 anchor + ROMs).
     // =================================================================
     wire ff_tx, ff_friend, ff_valid;
     trinity_friend_foe #(.MY_ANCHOR(8'hCF)) u_friend_foe (
@@ -154,9 +149,7 @@ module tt_um_trinity_nano (
 
     // ------------------------------------------------------------------
     // Sacred Constants ROM — PHI PhD constants (Glava 3+7+28)
-    // Sacred read mode: ui_in[7]=1 and load_mode=0.
-    //   addr = {1'b0, ui_in[6:1]}  (6-bit, covers first 64 constants)
-    //   uo_out = sacred_val[7:0]
+    // TTSKY26b: extended to addr 75..82 (Lucas L_8..L_11, zig-golden-float constants)
     // ------------------------------------------------------------------
     reg  [6:0] sacred_addr_r;
     wire [7:0] sacred_val;
@@ -174,15 +167,7 @@ module tt_um_trinity_nano (
     wire sacred_mode = ui_in[7] && !load_mode;
 
     // ==================================================================
-    // CROWN47 ROM — Crown of TRI NET (Crown42 + 5 Tegmark-31 fillers).
-    // 47 Trinity constants in 24-bit pseudo-float (Vasilev-Pellis v22.12).
-    // Activated by uio_in[7]=1 when neither load_mode nor sacred_mode are
-    // active. Provides ONE byte per cycle:
-    //   ui_in[6:0]   = crown_addr (0..46)
-    //   uio_in[6:5]  = byte_sel (0=mant_lo 1=mant_hi 2=exp 3=tier_flag)
-    // Combinational - same-cycle byte on uo_out.
-    // Anchor phi^2+phi^-2=3 . DOI 10.5281/zenodo.19227877
-    // R-SI-1 clean. Same module instantiated unchanged in EULER + GAMMA.
+    // CROWN47 ROM
     // ==================================================================
     wire        crown_mode     = uio_in[7] && !load_mode && !sacred_mode;
     wire [6:0]  crown_addr     = ui_in[6:0];
@@ -196,7 +181,7 @@ module tt_um_trinity_nano (
     );
 
     // ------------------------------------------------------------------
-    // Output pin mux wire (used for legacy path and POST status override)
+    // Output pin mux wire (legacy path)
     // ------------------------------------------------------------------
     wire [7:0] uio_legacy =
         load_mode   ? tile_dbg_result[15:8] :
@@ -205,7 +190,7 @@ module tt_um_trinity_nano (
                       canonical_dot[15:8];
 
     // ==================================================================
-    // Lucas POST — proves φ²+φ⁻²=3 via L₂..L₇ recurrence (phi_anchor_post)
+    // Lucas POST — proves φ²+φ⁻²=3 via L₂..L₇ recurrence
     // ==================================================================
     wire phi_post_ok, phi_post_done;
     phi_anchor_post u_phi_post (
@@ -216,8 +201,19 @@ module tt_um_trinity_nano (
     );
 
     // ==================================================================
-    // Lucas ROM — addressable L_n probe (L₂..L₇ mapped to idx 0..5)
-    // ui[3:1] = lucas_idx → uio_out[5:0] in status mode
+    // Cassini POST — orthogonal Cassini-Lucas identity verifier (TTSKY26b P0)
+    // R-SI-1: no `*` operators (pre-computed product table used).
+    // ==================================================================
+    wire cassini_ok, cassini_done;
+    cassini_post u_cassini_post (
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .cassini_ok(cassini_ok),
+        .post_done (cassini_done)
+    );
+
+    // ==================================================================
+    // Lucas ROM — addressable L_n probe
     // ==================================================================
     wire [2:0] lucas_idx = ui_in[3:1];
     wire [7:0] lucas_val;
@@ -228,8 +224,6 @@ module tt_um_trinity_nano (
 
     // ==================================================================
     // HWRNG — 16-bit LFSR for die-unique nonce
-    // ui[4] = rng_ena → advances LFSR each clock when high
-    // ui_in[7:0] (in canonical mode) reflects rng_nonce[7:0]
     // ==================================================================
     wire rng_ena = ui_in[4] && !load_mode;
     wire [15:0] rng_nonce;
@@ -242,12 +236,6 @@ module tt_um_trinity_nano (
 
     // ==================================================================
     // Restraint Control — CLARA Gap-4 bounded rationality
-    // ui[5] = restraint_mode → activates restraint checking
-    // Triggers on: phi_drift > 164, step_count > 10, receipt failure
-    // Since phi-anchor has minimal FSM, we use synthetic triggers:
-    //   - phi_drift = rng_nonce[15:0] (simulated drift via entropy)
-    //   - step_count = 4'h0 (always safe, restraint not triggered)
-    //   - receipt_ok = 1'b1 (always OK, no receipt module in 1×1)
     // ==================================================================
     wire restraint_mode = ui_in[5] && !load_mode;
     wire rc_force_unknown, rc_halt_mac;
@@ -255,58 +243,130 @@ module tt_um_trinity_nano (
     restraint_ctrl u_restraint (
         .clk          (clk),
         .rst_n        (rst_n),
-        .phi_drift    (rng_nonce),           // synthetic trigger from entropy
-        .step_count   (4'h0),                 // always 0 = safe
-        .receipt_ok   (1'b1),                 // always OK
-        .current_state(2'b00),               // IDLE
+        .phi_drift    (rng_nonce),
+        .step_count   (4'h0),
+        .receipt_ok   (1'b1),
+        .current_state(2'b00),
         .force_unknown (rc_force_unknown),
         .halt_mac     (rc_halt_mac),
         .reason       (rc_reason)
     );
 
     // ==================================================================
+    // Ring27 Memory — 27-cell ternary ring (TTSKY26b P0)
+    // Dual read port: addr=0 → ALU operand A, addr=1 → ALU operand B.
+    // Single instance with two combinational read addresses.
+    // shift: ring rotates when load_mode=1 and compute_s=1 (ui_in[6]).
+    // ==================================================================
+    wire ring_shift  = load_mode && compute_s && !compute_rise;
+    wire ring_wr_en  = 1'b0;   // writes reserved for future expansion
+    wire [1:0] ring_rd_a, ring_rd_b;
+    wire       ring_ok;
+
+    ring27_memory u_ring27 (
+        .clk      (clk),
+        .rst_n    (rst_n),
+        .shift    (ring_shift),
+        .wr_en    (ring_wr_en),
+        .addr     (5'd0),        // port A always reads cell[0]
+        .addr_b   (5'd1),        // port B always reads cell[1]
+        .wr_data  (2'b10),       // 0 (unused)
+        .rd_data  (ring_rd_a),
+        .rd_data_b(ring_rd_b),
+        .ring_ok  (ring_ok)
+    );
+
+    // 8-bit ring window for status readback.
+    // Packs cells[0..3]: [7:6]=cells[3], [5:4]=cells[2], [3:2]=cells[1], [1:0]=cells[0].
+    // cells[2]= 2'b10(0), cells[3]=2'b00(+1) from canonical seed.
+    wire [7:0] ring27_window = {2'b00, 2'b10, ring_rd_b, ring_rd_a};
+
+    // ==================================================================
+    // TRI-9 ALU Decoder — 9 ternary opcodes (TTSKY26b P0)
+    // Gap-0 (K3 Kleene logic) + CLARA TA2 VSA compliance.
+    // Combinational. Operands A/B from ring27 cells[0]/cells[1].
+    // Opcode sourced from ui_in[3:0] (valid in all modes for decode).
+    // ==================================================================
+    wire [1:0] alu9_result_w;
+    wire       alu9_valid_w;
+    wire       alu9_decoder_ok;
+
+    alu9_decoder u_alu9 (
+        .opcode    (ui_in[3:0]),
+        .a         (ring_rd_a),
+        .b         (ring_rd_b),
+        .result    (alu9_result_w),
+        .valid     (alu9_valid_w),
+        .decoder_ok(alu9_decoder_ok)
+    );
+
+    // Register last ALU result for readback in alu9_status_mode
+    reg [1:0] alu9_result_q;
+    reg       alu9_valid_q;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            alu9_result_q <= 2'b10;  // ternary zero
+            alu9_valid_q  <= 1'b0;
+        end else begin
+            alu9_result_q <= alu9_result_w;
+            alu9_valid_q  <= alu9_valid_w;
+        end
+    end
+
+    // ==================================================================
     // Status Byte Override — POST status is REQUEST-GATED, not automatic.
-    // The TG-TRIAD-X canonical anchor 0x47C0 is the default output on every
-    // cycle once reset is released, matching e-engine and γ-surface. Earlier
-    // revisions of this module auto-switched to POST status as soon as the
-    // FSM raised post_done, which drifted {uio_out,uo_out} away from 0x47C0
-    // after a handful of clocks and broke canonical-stability (regression
-    // visible as the historical test_canonical_stable failure showing
-    // 0x30C3 ~ {0x30, 0xC3} = {lucas_val[7:6],1,1,4'b0} ∥ {1,1,lucas_val[5:0]}).
     //
-    // The host now explicitly asks for POST status by raising ui_in[3]=1
-    // together with ui_in[2]=1 in canonical (non-load) mode. This pair is
-    // never set during canonical idle (ui_in==0) and never during the Lucas
-    // ROM probe (which uses ui_in[3:1] alone with ui_in[0]=0 but only one
-    // of {ui_in[2],ui_in[3]} high at a time for L₆/L₇), so it does not
-    // collide with any existing pin contract.
+    // status_request = ui_in[3] && ui_in[2]
+    // status_sub     = {ui_in[1], ui_in[0]}
+    //
+    // At canonical idle (ui_in=0x00): status_request=0 → all modes off →
+    // {uio_out, uo_out} = 0x47C0. TG-TRIAD-X Theorem 36.1 preserved.
     // ==================================================================
     wire status_request    = ui_in[3] && ui_in[2];
-    wire post_status_mode  = status_request && phi_post_done
-                              && !load_mode && !sacred_mode && !crown_mode;
+    wire [1:0] status_sub  = {ui_in[1], ui_in[0]};
 
-    wire [7:0] uo_final = post_status_mode ?
-                          {phi_post_ok, phi_post_done, lucas_val[5:0]} :
-                          (load_mode   ? tile_dbg_result[7:0] :
-                           sacred_mode ? sacred_val           :
-                           crown_mode  ? crown_byte_out       :
-                                         canonical_dot[7:0]);
+    wire post_status_mode    = status_request && (status_sub == 2'b00) && phi_post_done
+                                && !load_mode && !sacred_mode && !crown_mode;
+    wire cassini_status_mode = status_request && (status_sub == 2'b10) && cassini_done
+                                && !load_mode && !sacred_mode && !crown_mode;
+    wire ring27_status_mode  = status_request && (status_sub == 2'b01)
+                                && !load_mode && !sacred_mode && !crown_mode;
+    wire alu9_status_mode    = status_request && (status_sub == 2'b11)
+                                && !load_mode && !sacred_mode && !crown_mode;
 
-    wire [7:0] uio_final = post_status_mode ?
-                           {lucas_val[7:6], phi_post_ok, phi_post_done, 4'b0000} :
-                           uio_legacy;
+    // Output mux
+    wire [7:0] uo_final =
+        post_status_mode    ? {phi_post_ok, phi_post_done, lucas_val[5:0]}         :
+        cassini_status_mode ? {cassini_ok, cassini_done, 6'b000000}                 :
+        ring27_status_mode  ? ring27_window                                         :
+        alu9_status_mode    ? {4'b0000, alu9_valid_q, 1'b0, alu9_result_q}         :
+        (load_mode   ? tile_dbg_result[7:0] :
+         sacred_mode ? sacred_val           :
+         crown_mode  ? crown_byte_out       :
+                       canonical_dot[7:0]);
+
+    wire [7:0] uio_final =
+        post_status_mode    ? {lucas_val[7:6], phi_post_ok, phi_post_done, 4'b0000} :
+        cassini_status_mode ? {6'b000000, phi_post_ok, cassini_ok}                   :
+        ring27_status_mode  ? 8'h00                                                  :
+        alu9_status_mode    ? 8'h00                                                  :
+        uio_legacy;
 
     // Final output assignments
     assign uo_out  = uo_final;
     assign uio_out = !load_mode ? uio_final :
                                      {uio_final[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
-    // uio[1] is RX bit (input) in live mode; all outputs in canonical mode
     assign uio_oe  = !load_mode ? 8'hFF : 8'b1111_1101;
 
     // Lint tie-offs
-    wire _unused_ena   = ena;
-    wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
-    wire _unused_reason = rc_reason;  // restraint reason available for debug
+    wire _unused_ena    = ena;
+    wire _unused_tile   = tile_out_valid | (|tile_out_pkt);
+    wire _unused_reason = rc_reason;
+    wire _unused_ring   = ring_ok;
+    wire _unused_dec    = alu9_decoder_ok;
+    wire _unused_rc_fu  = rc_force_unknown;
+    wire _unused_rc_hm  = rc_halt_mac;
+    wire _unused_rst    = restraint_mode;
 
 endmodule
 

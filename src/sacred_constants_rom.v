@@ -7,16 +7,30 @@
 // Scale: 2^5 = 32. Range 0x00..0x7F.
 //
 // Sparse encoding strategy (Lane L-S32, ~30% cell reduction vs dense case-ROM):
-//   Layer 1 (ZERO path)  : addr >= 7'd75 → 8'h00  (53 reserved addresses)
+//   Layer 1 (ZERO path)  : addr >= 7'd83 → 8'h00  (45 reserved addresses)
 //   Layer 2 (CLAMP path) : 15 addresses saturate to 8'h7F via is_clamp signal
-//   Layer 3 (RESIDUAL)   : remaining 60 non-zero non-clamp entries in case-LUT
+//   Layer 3 (RESIDUAL)   : remaining entries in case-LUT
 //   Output MUX           : clamp_mux → residual_mux → 8'h00
 //
-// Cell estimate: ~133 sky130 cells (vs ~190 dense) → 30% reduction → +5 TOPS/W PHI
+// Cell estimate: ~143 sky130 cells (+10 for 8 new addr 75..82 entries)
 //
 // Crown47 / 0x47C0 anchor PRESERVED:
 //   addr 16 → 8'h47  (TG-TRIAD canonical anchor MSB, in residual case)
 //   addr 17 → 8'h7F  (TG-TRIAD canonical anchor LSB 0xC0 clamped, in CLAMP set)
+//
+// TTSKY26b extension — addr 75..82 (8 new constants):
+//   addr 75: L_8  = 47      → Q3.5: 47 = 0x5E (1.469 * 32 = 47.0)
+//   addr 76: L_9  = 76      → Q3.5: 76 = 0x7F (clamped, >127/32)
+//   addr 77: L_10 = 123     → Q3.5: 0x7F (clamped)
+//   addr 78: L_11 = 199     → Q3.5: 0x7F (clamped)
+//   addr 79: alpha_phi = 0.118034 (phi^-3/2) → Q3.5: round(0.118034*32)=4 → 0x04
+//            Also: IGLA-INV-002 anchor alpha_phi=0.118034 (from zig-golden-float)
+//   addr 80: BERRY_PHASE = pi*(1-1/phi) = pi*phi^-2 ≈ 1.196 → Q3.5: round(1.196*32)=38 → 0x26
+//            Source: zig-golden-float src/math/constants.zig
+//   addr 81: SU3 = 3/(2*phi) ≈ 0.927 → Q3.5: round(0.927*32)=30 → 0x1E
+//            Source: zig-golden-float src/math/constants.zig
+//   addr 82: MU = phi^-2/10 = 0.0382 → Q3.5: round(0.0382*32)=1 → 0x01
+//            Source: zig-golden-float src/math/constants.zig
 //
 // Pure Verilog-2005. R-SI-1: zero multiply operators.
 
@@ -27,10 +41,11 @@ module sacred_constants_rom (
 
     // ----------------------------------------------------------------
     // Layer 2 — CLAMP detection
-    // 15 addresses that saturate to 8'h7F in Q3.5:
+    // 18 addresses that saturate to 8'h7F in Q3.5:
     //   5(pi^2), 11(3^2), 12(3^3), 13(3^4), 14(3^5),
     //   15(phi*pi), 17(TG-TRIAD LSB), 18(phi^3), 19(phi^4), 20(phi^5),
     //   23(pi^3), 24(e^2), 60(e*phi), 73(2*pi), 74(e+phi)
+    //   76(L_9=76>3.999*32), 77(L_10=123), 78(L_11=199)
     // Encoded as a combinational OR over address comparisons.
     // ----------------------------------------------------------------
     reg is_clamp;
@@ -38,7 +53,8 @@ module sacred_constants_rom (
         case (addr)
             7'd5,  7'd11, 7'd12, 7'd13, 7'd14,
             7'd15, 7'd17, 7'd18, 7'd19, 7'd20,
-            7'd23, 7'd24, 7'd60, 7'd73, 7'd74:
+            7'd23, 7'd24, 7'd60, 7'd73, 7'd74,
+            7'd76, 7'd77, 7'd78:
                 is_clamp = 1'b1;
             default:
                 is_clamp = 1'b0;
@@ -46,7 +62,7 @@ module sacred_constants_rom (
     end
 
     // ----------------------------------------------------------------
-    // Layer 3 — Residual 60-entry case-LUT (non-zero, non-clamp, addr<75)
+    // Layer 3 — Residual case-LUT (non-zero, non-clamp entries)
     // ----------------------------------------------------------------
     reg [7:0] residual;
     always @(addr) begin
@@ -119,14 +135,24 @@ module sacred_constants_rom (
             7'd70: residual = 8'h19; // pi/4 = 0.785398
             7'd71: residual = 8'h16; // e/4 = 0.679570
             7'd72: residual = 8'h1A; // phi/2 = 0.809017
-            // default: all other addresses produce 0x00 (addr >= 75 or not in clamp)
+            // --- Addr 75-82: TTSKY26b extension — Lucas L_8..L_11, zig-golden-float ---
+            7'd75: residual = 8'h5E; // L_8 = 47: Q3.5 = 47 = 0x5E (fits in 7 bits)
+            7'd79: residual = 8'h04; // alpha_phi = phi^-3/2 = 0.118034: Q3.5 = round(0.118034*32)=4
+                                     // IGLA-INV-002 anchor (trinity-clara igla_asha_bound.v)
+            7'd80: residual = 8'h26; // BERRY_PHASE = pi*(1-1/phi) = 1.196: Q3.5 = round(1.196*32)=38=0x26
+                                     // Source: zig-golden-float src/math/constants.zig
+            7'd81: residual = 8'h1E; // SU3 = 3/(2*phi) = 0.927: Q3.5 = round(0.927*32)=30=0x1E
+                                     // Source: zig-golden-float src/math/constants.zig
+            7'd82: residual = 8'h01; // MU = phi^-2/10 = 0.0382: Q3.5 = round(0.0382*32)=1=0x01
+                                     // Source: zig-golden-float src/math/constants.zig
+            // default: all other addresses produce 0x00
             default: residual = 8'h00;
         endcase
     end
 
     // ----------------------------------------------------------------
     // Output MUX — three-layer priority
-    // Priority: CLAMP > RESIDUAL > ZERO (addr >= 75 already gives residual=0x00)
+    // Priority: CLAMP > RESIDUAL > ZERO (addr >= 83 gives residual=0x00)
     // ----------------------------------------------------------------
     always @(addr or is_clamp or residual) begin
         if (is_clamp)

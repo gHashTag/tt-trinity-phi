@@ -1,5 +1,7 @@
-# Tiny Tapeout project information — TRI-1 Nano
+# Tiny Tapeout project information — TRI-1 Phi Anchor
 # https://tinytapeout.com/specs/info_yaml/
+#
+# R-SI-1 verified: zero `*` operators in synthesisable RTL.
 yaml_version: 6
 
 project:
@@ -13,10 +15,14 @@ project:
     directly onto {uio_out, uo_out}, matching the same constant emitted by
     e-engine (tt-trinity-euler) and γ-surface (tt-trinity-gamma). This is the
     cross-die anchor for the TG-TRIAD-X ledger (PhD Theorem 36.1).
-    Enhanced modules: phi_anchor_post (Lucas L₂..L₇ POST proving φ²+φ⁻²=3),
-    lucas_rom (addressable L_n host probe), hwrng_lfsr (die-unique nonce),
-    restraint_ctrl (CLARA Gap-4 bounded rationality), sacred_constants_rom
-    (75 PhD constants), crown47_rom (Trinity constants), friend/foe handshake.
+    Enhanced modules: phi_anchor_post (Lucas L₂..L₇ POST), lucas_rom,
+    hwrng_lfsr (die-unique nonce), restraint_ctrl (CLARA Gap-4),
+    sacred_constants_rom (83 PhD constants incl. L_8..L_11),
+    crown47_rom, friend/foe handshake.
+    TTSKY26b P0: + Cassini-Lucas POST (orthogonal identity verifier,
+    L_n·L_{n+1} − L_{n-1}·L_{n+2} = ±5), TRI-9 ISA bytecode (9 ternary
+    opcodes: NOP, ADD, SUB, MUL, AND, OR, NOT, BIND, BUNDLE — Gap-0 K3
+    + CLARA TA2 VSA), Ring27 ternary memory (27-cell VSA, 3³ sacred).
     R-SI-1: zero `*` operators in synthesisable RTL.
     Anchor: phi^2 + phi^-2 = 3. DOI: 10.5281/zenodo.19227877.
   language:     "Verilog"
@@ -42,16 +48,18 @@ project:
     - "lucas_rom.v"
     - "hwrng_lfsr.v"
     - "restraint_ctrl.v"
-
+    - "cassini_post.v"
+    - "alu9_decoder.v"
+    - "ring27_memory.v"
 pinout:
-  ui[0]: "load_mode (0=canonical/POST status, 1=packet path)"
-  ui[1]: "lucas_idx[0] — Lucas ROM L_n address (0=L2..5=L7)"
-  ui[2]: "lucas_idx[1]"
-  ui[3]: "lucas_idx[2]"
+  ui[0]: "load_mode (0=canonical/status, 1=packet path)"
+  ui[1]: "lucas_idx[0] / status_sub[0] — Lucas ROM addr or status sub-mode"
+  ui[2]: "lucas_idx[1] / status_sub[1] — also status_request[0]"
+  ui[3]: "lucas_idx[2] / status_request[1] — status_request = ui[3]&&ui[2]"
   ui[4]: "rng_ena — advance HWRNG LFSR each clock"
   ui[5]: "restraint_mode — CLARA Gap-4 active"
-  ui[6]: "compute_strobe (rising edge issues COMPUTE)"
-  ui[7]: "load_lane_strobe (rising edge advances lane)"
+  ui[6]: "compute_strobe (rising edge issues COMPUTE; also ring rotate in load_mode)"
+  ui[7]: "load_lane_strobe (rising edge advances lane) / sacred_mode enable"
   uo[0]: "result[0] (canonical 0x47C0 by default)"
   uo[1]: "result[1]"
   uo[2]: "result[2]"
@@ -60,11 +68,11 @@ pinout:
   uo[5]: "result[5]"
   uo[6]: "result[6]"
   uo[7]: "result[7]"
-  uio[0]: "result[8]"
-  uio[1]: "result[9]"
-  uio[2]: "result[10]"
-  uio[3]: "result[11]"
+  uio[0]: "result[8] / ff_tx in load_mode"
+  uio[1]: "result[9] / rx_bit (input) in load_mode"
+  uio[2]: "result[10] / ff_friend in load_mode"
+  uio[3]: "result[11] / ff_valid in load_mode"
   uio[4]: "result[12]"
   uio[5]: "result[13]"
   uio[6]: "result[14]"
-  uio[7]: "result[15]"
+  uio[7]: "result[15] / crown_mode enable (input)"

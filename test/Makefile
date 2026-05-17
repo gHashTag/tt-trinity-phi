@@ -21,7 +21,10 @@ PROJECT_SOURCES     = tt_um_trinity_nano.v \
                       phi_anchor_post.v \
                       lucas_rom.v \
                       hwrng_lfsr.v \
-                      restraint_ctrl.v
+                      restraint_ctrl.v \
+                      cassini_post.v \
+                      alu9_decoder.v \
+                      ring27_memory.v
 
 ifneq ($(GATES),yes)
   SIM_BUILD         = sim_build/rtl
