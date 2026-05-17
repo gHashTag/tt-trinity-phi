@@ -1,6 +1,8 @@
 # TRI-1 Phi — Trinity φ-anchor (Canonical Seed + Lucas POST)
 
 [![GDS](https://github.com/gHashTag/tt-trinity-phi/actions/workflows/gds.yaml/badge.svg)](https://github.com/gHashTag/tt-trinity-phi/actions/workflows/gds.yaml)
+[![R-SI-1](https://img.shields.io/badge/R--SI--1-0%20%2A%20ops-brightgreen)](docs/R-SI-1.md)
+[![Verilog-2005](https://img.shields.io/badge/Verilog--2005-OK-brightgreen)](docs/VERILOG-2005.md)
 [![Submit](https://img.shields.io/badge/TTSKY26b-Phi%20anchor-orange)](https://app.tinytapeout.com/shuttles/ttsky26b)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Sacred](https://img.shields.io/badge/sacred--constant-%CF%86%20%E2%89%88%201.61803-purple)](#sacred-formula)
