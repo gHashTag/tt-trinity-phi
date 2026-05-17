@@ -9,7 +9,19 @@ SRC_DIR            := $(MAKEFILE_DIR)../src
 
 SIM                ?= icarus
 TOPLEVEL_LANG      ?= verilog
-PROJECT_SOURCES     = tt_um_trinity_nano.v gf16_mul.v gf16_add.v gf16_dot4.v trinity_gf16_tile.v
+PROJECT_SOURCES     = tt_um_trinity_nano.v \
+                      gf16_mul.v \
+                      gf16_add.v \
+                      gf16_dot4.v \
+                      trinity_gf16_tile.v \
+                      trinity_friend_foe.v \
+                      sacred_constants_rom.v \
+                      crown47_rom.v \
+                      crown47_rom_8bit.v \
+                      phi_anchor_post.v \
+                      lucas_rom.v \
+                      hwrng_lfsr.v \
+                      restraint_ctrl.v
 
 ifneq ($(GATES),yes)
   SIM_BUILD         = sim_build/rtl
