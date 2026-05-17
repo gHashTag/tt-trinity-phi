@@ -25,8 +25,11 @@ jobs:
           echo "=== R-SI-1: checking for forbidden arithmetic * operators ==="
           FAIL=0
           for f in src/*.v; do
-            # exclude comments and always @(*) sensitivity lists
-            HITS=$(grep -n '\*' "$f" | grep -v '^[^:]*://\s*' | grep -v 'always\s*@\s*(\s*\*\s*)' | grep -v '/\*' | grep -v '\*/' | grep '[^*]\*[^*]' || true)
+            # Strip block comments /* ... */ (single-line form) and line comments // ...
+            # then look for an arithmetic '*' that is not part of '**', '*)' (sens list),
+            # '/*' or '*/' (block comment delimiters).
+            STRIPPED=$(sed -E -e 's@/\*([^*]|\*+[^*/])*\*+/@@g' -e 's@//.*$@@' "$f")
+            HITS=$(printf '%s\n' "$STRIPPED" | grep -nE '[^*/(]\*[^*/)]' | grep -v 'always[[:space:]]*@[[:space:]]*([[:space:]]*\*[[:space:]]*)' || true)
             if [ -n "$HITS" ]; then
               echo "FAIL $f:"
               echo "$HITS"
@@ -42,7 +45,7 @@ jobs:
       - name: iverilog lint (Verilog-2005)
         run: |
           echo "=== iverilog -g2005 compile check ==="
-          iverilog -g2005 -Wall -y src \
+          iverilog -g2005 -Wall -y src -I src \
             src/tt_um_trinity_nano.v \
             src/gf16_mul.v \
             src/gf16_add.v \
