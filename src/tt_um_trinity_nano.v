@@ -265,13 +265,25 @@ module tt_um_trinity_nano (
     );
 
     // ==================================================================
-    // Status Byte Override — POST status overrides canonical 0x47C0
-    // When post_done=1 and load_mode=0, output status:
-    //   uo_out[7:6] = {phi_post_ok, phi_post_done}
-    //   uo_out[5:0] = lucas_val[5:0]
-    // This allows host to verify POST completed successfully.
+    // Status Byte Override — POST status is REQUEST-GATED, not automatic.
+    // The TG-TRIAD-X canonical anchor 0x47C0 is the default output on every
+    // cycle once reset is released, matching e-engine and γ-surface. Earlier
+    // revisions of this module auto-switched to POST status as soon as the
+    // FSM raised post_done, which drifted {uio_out,uo_out} away from 0x47C0
+    // after a handful of clocks and broke canonical-stability (regression
+    // visible as the historical test_canonical_stable failure showing
+    // 0x30C3 ~ {0x30, 0xC3} = {lucas_val[7:6],1,1,4'b0} ∥ {1,1,lucas_val[5:0]}).
+    //
+    // The host now explicitly asks for POST status by raising ui_in[3]=1
+    // together with ui_in[2]=1 in canonical (non-load) mode. This pair is
+    // never set during canonical idle (ui_in==0) and never during the Lucas
+    // ROM probe (which uses ui_in[3:1] alone with ui_in[0]=0 but only one
+    // of {ui_in[2],ui_in[3]} high at a time for L₆/L₇), so it does not
+    // collide with any existing pin contract.
     // ==================================================================
-    wire post_status_mode = phi_post_done && !load_mode && !sacred_mode && !crown_mode;
+    wire status_request    = ui_in[3] && ui_in[2];
+    wire post_status_mode  = status_request && phi_post_done
+                              && !load_mode && !sacred_mode && !crown_mode;
 
     wire [7:0] uo_final = post_status_mode ?
                           {phi_post_ok, phi_post_done, lucas_val[5:0]} :
