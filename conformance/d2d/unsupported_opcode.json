@@ -1,0 +1,46 @@
+{
+  "$schema": "tt-trinity-phi/d2d-conformance-vector/1.0",
+  "scenario_id": "D2D-VEC-3",
+  "scenario_name": "Unsupported TYPE byte — slaves drop silently, no ACK",
+  "claims_matrix_rows": ["VC-D2D-3"],
+  "protocol_version": "1.0",
+  "protocol_ref": "docs/INTERCONNECT_PROTOCOL_V1.md",
+  "spec_section": "§5.2 TYPE Field Encoding",
+  "expected_outcome": "drop_silent",
+  "description": [
+    "Phi transmits a frame whose TYPE byte is outside the v1.0 set",
+    "{0x47 ANCHOR, 0x93 GAMMA-ROUTE, 0xE0 EULER-ROUTE, 0xC1 BROADCAST}.",
+    "All slaves MUST drop silently and increment err_cnt.",
+    "Wire C MUST stay high through the entire SYNC_BURST window."
+  ],
+  "frames": [
+    {
+      "direction": "phi_to_slaves",
+      "type_byte": "0xAA",
+      "type_name": "UNSUPPORTED",
+      "type_in_spec_table": false,
+      "len": 1,
+      "payload": ["0x00"],
+      "crc8": "0x12",
+      "crc_valid": true,
+      "note": "CRC is correct, but TYPE is unsupported; slaves drop before any state change.",
+      "eof_marker": "ui_in[0]=0 for 2 cycles"
+    }
+  ],
+  "wire_trace": [
+    { "cycle": 0,  "phase": "IDLE",       "wire_c_ack": "high" },
+    { "cycle": 1,  "phase": "LOAD_PHASE", "ui_in_byte": "0xAA" },
+    { "cycle": 2,  "phase": "LOAD_PHASE", "ui_in_byte": "0x01" },
+    { "cycle": 3,  "phase": "LOAD_PHASE", "ui_in_byte": "0x00" },
+    { "cycle": 4,  "phase": "LOAD_PHASE", "ui_in_byte": "0x12", "note": "CRC byte (correct CRC, wrong TYPE)" },
+    { "cycle": 5,  "phase": "EOF" },
+    { "cycle": 6,  "phase": "EOF" },
+    { "cycle": 7,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "high" },
+    { "cycle": 8,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "high", "note": "No ACK from any slave" },
+    { "cycle": 9,  "phase": "ACK_TIMEOUT","wire_c_ack": "high" },
+    { "cycle": 10, "phase": "IDLE",       "wire_c_ack": "high" }
+  ],
+  "expected_state_transitions": ["IDLE", "LOAD_PHASE", "EOF", "SYNC_BURST", "ACK_TIMEOUT", "IDLE"],
+  "expected_counters": { "err_cnt_delta": 1, "retry_cnt_delta": 0 },
+  "anti_claim": "Any slave ACKs an unsupported TYPE; or executes the payload as a recognized opcode."
+}

@@ -1,0 +1,167 @@
+{
+  "$schema": "tt-trinity-phi/nmse-golden-vector/1.0",
+  "protocol": "GF16_BFLOAT16_NMSE/1.0",
+  "spec": "GF16_BFLOAT16_NMSE.md",
+  "claims_matrix_rows": ["VC-NMSE-1", "VC-NMSE-2", "VC-NMSE-3", "VC-NMSE-4"],
+  "last_updated": "2026-05-18",
+  "notes": [
+    "These are reference golden vectors, not silicon captures.",
+    "expected.nmse_db values are illustrative reference baselines",
+    "drawn from the published behaviour of GF16 and bfloat16 on",
+    "the listed distributions. They are NOT measurements from any",
+    "physical die and NOT outputs of a harness in this repo yet.",
+    "They exist so a future harness has a contract to match."
+  ],
+  "provenance": {
+    "mode": "RTL_ONLY",
+    "anchor_word": "0x47C0",
+    "anchor_verified": true,
+    "phi_anchor_die_lot": null,
+    "phi_anchor_die_wafer": null,
+    "silicon": false
+  },
+  "sample_count": 1048576,
+  "seed": "0x47C0",
+  "rng": {
+    "algorithm": "PCG64",
+    "seed_uint64": 18368,
+    "seed_hex": "0x47C0",
+    "stream_per_distribution": true,
+    "stream_id_rule": "stream_id = ord('1') + offset(distribution_id) where D-1..D-6 map to 0..5"
+  },
+  "aggregation": "single",
+  "nmse_formula": "10 * log10( sum_i (x_i - x_hat_i)^2 / sum_i x_i^2 )",
+  "ground_truth_dtype": "IEEE binary32",
+  "distributions": [
+    {
+      "id": "D-1",
+      "name": "standard_normal",
+      "rationale": "Generic activations",
+      "generator": "x ~ Normal(0, 1)",
+      "params": { "mean": 0.0, "std": 1.0 }
+    },
+    {
+      "id": "D-2",
+      "name": "lognormal",
+      "rationale": "Weights with heavy tail",
+      "generator": "x = exp(Normal(0, 1))",
+      "params": { "mu": 0.0, "sigma": 1.0 }
+    },
+    {
+      "id": "D-3",
+      "name": "uniform_pm1",
+      "rationale": "Normalised activations",
+      "generator": "x ~ Uniform(-1, 1)",
+      "params": { "low": -1.0, "high": 1.0 }
+    },
+    {
+      "id": "D-4",
+      "name": "mixture_outlier",
+      "rationale": "Outlier-heavy attention scores",
+      "generator": "0.95 * Normal(0,1) + 0.05 * Normal(0,16)",
+      "params": { "p_main": 0.95, "main_std": 1.0, "tail_std": 16.0 }
+    },
+    {
+      "id": "D-5",
+      "name": "powers_of_two",
+      "rationale": "Dynamic-range stress test",
+      "generator": "x = sign * 2^k, k ~ Uniform(-30, 30), sign ~ Bernoulli(0.5)*2-1",
+      "params": { "k_min": -30, "k_max": 30 }
+    },
+    {
+      "id": "D-6",
+      "name": "sacred_constants_rom",
+      "rationale": "phi-anchor-native canonical set; ties the test to the on-die ROM",
+      "generator": "deterministic read of src/sacred_constants_rom.v (75 entries) repeated to N samples",
+      "params": { "rom_entries": 75, "rom_source": "src/sacred_constants_rom.v" }
+    }
+  ],
+  "formats": [
+    {
+      "name": "gf16",
+      "bits": 16,
+      "sign": 1,
+      "exp": 6,
+      "mant": 9,
+      "bias": 31,
+      "spec": "specs/numeric/gf16.t27",
+      "conformance": "conformance/FORMAT-SPEC-001.json"
+    },
+    {
+      "name": "bfloat16",
+      "bits": 16,
+      "sign": 1,
+      "exp": 8,
+      "mant": 7,
+      "bias": 127,
+      "ieee_compliant": false,
+      "spec": "specs/numeric/formats.t27"
+    }
+  ],
+  "results": [
+    {
+      "dist": "D-1",
+      "format": "gf16",
+      "expected": { "nmse_db": -54.2, "tolerance_db": 1.5, "lower_is_better": true }
+    },
+    {
+      "dist": "D-1",
+      "format": "bfloat16",
+      "expected": { "nmse_db": -47.8, "tolerance_db": 1.5, "lower_is_better": true }
+    },
+    {
+      "dist": "D-2",
+      "format": "gf16",
+      "expected": { "nmse_db": -38.1, "tolerance_db": 2.0, "lower_is_better": true }
+    },
+    {
+      "dist": "D-2",
+      "format": "bfloat16",
+      "expected": { "nmse_db": -41.0, "tolerance_db": 2.0, "lower_is_better": true }
+    },
+    {
+      "dist": "D-3",
+      "format": "gf16",
+      "expected": { "nmse_db": -56.7, "tolerance_db": 1.5, "lower_is_better": true }
+    },
+    {
+      "dist": "D-3",
+      "format": "bfloat16",
+      "expected": { "nmse_db": -48.4, "tolerance_db": 1.5, "lower_is_better": true }
+    },
+    {
+      "dist": "D-4",
+      "format": "gf16",
+      "expected": { "nmse_db": -32.0, "tolerance_db": 3.0, "lower_is_better": true }
+    },
+    {
+      "dist": "D-4",
+      "format": "bfloat16",
+      "expected": { "nmse_db": -36.5, "tolerance_db": 3.0, "lower_is_better": true }
+    },
+    {
+      "dist": "D-5",
+      "format": "gf16",
+      "expected": { "nmse_db": -28.0, "tolerance_db": 4.0, "lower_is_better": true }
+    },
+    {
+      "dist": "D-5",
+      "format": "bfloat16",
+      "expected": { "nmse_db": -52.0, "tolerance_db": 4.0, "lower_is_better": true }
+    },
+    {
+      "dist": "D-6",
+      "format": "gf16",
+      "expected": { "nmse_db": -60.0, "tolerance_db": 1.0, "lower_is_better": true, "note": "sacred-ROM round-trip; should be near format-noise floor for GF16" }
+    },
+    {
+      "dist": "D-6",
+      "format": "bfloat16",
+      "expected": { "nmse_db": -45.0, "tolerance_db": 1.5, "lower_is_better": true, "note": "bf16 has fewer mantissa bits than GF16 here; expected to be worse" }
+    }
+  ],
+  "acceptance": {
+    "rule": "A harness run is conformant iff for every (dist, format) row, |actual.nmse_db - expected.nmse_db| <= expected.tolerance_db.",
+    "anti_claim": "Setting provenance.mode = 'SILICON' without a real die lot/wafer field set is a spec violation."
+  }
+}

@@ -1,0 +1,28 @@
+name: TRI-NET spec gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  spec-gate:
+    name: Verification claims + conformance vectors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python (for JSON schema checks)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run scripts/check_trinet_specs.sh
+        run: bash scripts/check_trinet_specs.sh
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true

@@ -1,0 +1,49 @@
+{
+  "$schema": "tt-trinity-phi/d2d-conformance-vector/1.0",
+  "scenario_id": "D2D-VEC-4",
+  "scenario_name": "Slave non-response — Phi exhausts retries and RESYNCs",
+  "claims_matrix_rows": ["VC-D2D-3"],
+  "protocol_version": "1.0",
+  "protocol_ref": "docs/INTERCONNECT_PROTOCOL_V1.md",
+  "spec_section": "§8.2 (3 retries then RESYNC) / §8 Error Handling",
+  "expected_outcome": "resync_after_retries",
+  "description": [
+    "A targeted slave fails to assert ACK within the 2-cycle budget on",
+    "every attempt. Phi MUST retry up to 3 times. On the 4th failure",
+    "(i.e., after 3 unsuccessful retries beyond the initial attempt),",
+    "Phi MUST enter RESYNC.",
+    "Vector encodes the full 4-attempt sequence and the final RESYNC",
+    "transition. err_cnt and retry_cnt deltas are reported."
+  ],
+  "frames": [
+    {
+      "direction": "phi_to_slaves",
+      "attempt": 1,
+      "type_byte": "0xE0",
+      "type_name": "EULER-ROUTE",
+      "len": 2,
+      "payload": ["0x01", "0x02"],
+      "crc8": "0x47",
+      "crc_valid": true
+    },
+    { "direction": "phi_to_slaves", "attempt": 2, "type_byte": "0xE0", "len": 2, "payload": ["0x01", "0x02"], "crc8": "0x47", "crc_valid": true },
+    { "direction": "phi_to_slaves", "attempt": 3, "type_byte": "0xE0", "len": 2, "payload": ["0x01", "0x02"], "crc8": "0x47", "crc_valid": true },
+    { "direction": "phi_to_slaves", "attempt": 4, "type_byte": "0xE0", "len": 2, "payload": ["0x01", "0x02"], "crc8": "0x47", "crc_valid": true }
+  ],
+  "wire_trace_summary": [
+    { "attempt": 1, "sync_burst_cycles": 2, "wire_c_observed": "high", "outcome": "ack_timeout" },
+    { "attempt": 2, "sync_burst_cycles": 2, "wire_c_observed": "high", "outcome": "ack_timeout" },
+    { "attempt": 3, "sync_burst_cycles": 2, "wire_c_observed": "high", "outcome": "ack_timeout" },
+    { "attempt": 4, "sync_burst_cycles": 2, "wire_c_observed": "high", "outcome": "resync" }
+  ],
+  "expected_state_transitions": [
+    "IDLE", "LOAD_PHASE", "SYNC_BURST", "ACK_TIMEOUT",
+    "LOAD_PHASE", "SYNC_BURST", "ACK_TIMEOUT",
+    "LOAD_PHASE", "SYNC_BURST", "ACK_TIMEOUT",
+    "LOAD_PHASE", "SYNC_BURST", "ACK_TIMEOUT",
+    "RESYNC", "IDLE"
+  ],
+  "expected_counters": { "err_cnt_delta": 4, "retry_cnt_delta": 3, "resync_count_delta": 1 },
+  "timing_budget": { "ack_window_cycles": 2, "max_retries_before_resync": 3 },
+  "anti_claim": "Phi enters RESYNC before 3 retries, or continues sending data frames after the 4th ACK timeout without RESYNC."
+}

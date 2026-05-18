@@ -1,0 +1,69 @@
+{
+  "$schema": "tt-trinity-phi/d2d-conformance-vector/1.0",
+  "scenario_id": "D2D-VEC-2",
+  "scenario_name": "Bad CRC — slave drops, Phi retries with correct CRC",
+  "claims_matrix_rows": ["VC-D2D-3"],
+  "protocol_version": "1.0",
+  "protocol_ref": "docs/INTERCONNECT_PROTOCOL_V1.md",
+  "spec_section": "§8.2 CRC Failure / §9 TV5",
+  "expected_outcome": "drop_and_retry",
+  "description": [
+    "Phi transmits a frame whose CRC byte is intentionally corrupt.",
+    "The slave MUST NOT partially execute the frame; the CRC check is",
+    "applied before any state change. Wire C stays high (no ACK).",
+    "Phi retries the same frame with the correct CRC; the slave ACKs",
+    "on the second attempt."
+  ],
+  "frames": [
+    {
+      "direction": "phi_to_slaves",
+      "attempt": 1,
+      "type_byte": "0x47",
+      "type_name": "ANCHOR",
+      "len": 2,
+      "payload": ["0x03", "0x04"],
+      "crc8": "0x00",
+      "crc_expected": "0xAB",
+      "crc_valid": false,
+      "eof_marker": "ui_in[0]=0 for 2 cycles"
+    },
+    {
+      "direction": "phi_to_slaves",
+      "attempt": 2,
+      "type_byte": "0x47",
+      "type_name": "ANCHOR",
+      "len": 2,
+      "payload": ["0x03", "0x04"],
+      "crc8": "0xAB",
+      "crc_valid": true,
+      "eof_marker": "ui_in[0]=0 for 2 cycles"
+    }
+  ],
+  "wire_trace": [
+    { "cycle": 0,  "phase": "IDLE",       "wire_c_ack": "high" },
+    { "cycle": 1,  "phase": "LOAD_PHASE", "ui_in_byte": "0x47", "attempt": 1 },
+    { "cycle": 2,  "phase": "LOAD_PHASE", "ui_in_byte": "0x02", "attempt": 1 },
+    { "cycle": 3,  "phase": "LOAD_PHASE", "ui_in_byte": "0x03", "attempt": 1 },
+    { "cycle": 4,  "phase": "LOAD_PHASE", "ui_in_byte": "0x04", "attempt": 1 },
+    { "cycle": 5,  "phase": "LOAD_PHASE", "ui_in_byte": "0x00", "attempt": 1, "note": "WRONG CRC" },
+    { "cycle": 6,  "phase": "EOF",        "attempt": 1 },
+    { "cycle": 7,  "phase": "EOF",        "attempt": 1 },
+    { "cycle": 8,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "high", "attempt": 1 },
+    { "cycle": 9,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "high", "attempt": 1, "note": "No ACK — slave dropped the frame" },
+    { "cycle": 10, "phase": "ACK_TIMEOUT","wire_c_ack": "high", "attempt": 1, "note": "Phi observes wire_c_ack stayed high through the budget" },
+    { "cycle": 11, "phase": "LOAD_PHASE", "ui_in_byte": "0x47", "attempt": 2 },
+    { "cycle": 12, "phase": "LOAD_PHASE", "ui_in_byte": "0x02", "attempt": 2 },
+    { "cycle": 13, "phase": "LOAD_PHASE", "ui_in_byte": "0x03", "attempt": 2 },
+    { "cycle": 14, "phase": "LOAD_PHASE", "ui_in_byte": "0x04", "attempt": 2 },
+    { "cycle": 15, "phase": "LOAD_PHASE", "ui_in_byte": "0xAB", "attempt": 2, "note": "CRC byte" },
+    { "cycle": 16, "phase": "EOF",        "attempt": 2 },
+    { "cycle": 17, "phase": "EOF",        "attempt": 2 },
+    { "cycle": 18, "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "low", "attempt": 2, "note": "Slave ACKs within 2 cycles" },
+    { "cycle": 19, "phase": "SYNC_BURST", "wire_c_ack": "high", "attempt": 2, "note": "ACK-complete" },
+    { "cycle": 20, "phase": "IDLE",       "wire_c_ack": "high" }
+  ],
+  "expected_state_transitions": ["IDLE", "LOAD_PHASE", "EOF", "SYNC_BURST", "ACK_TIMEOUT", "LOAD_PHASE", "EOF", "SYNC_BURST", "IDLE"],
+  "expected_counters": { "err_cnt_delta": 1, "retry_cnt_delta": 1 },
+  "timing_budget": { "ack_window_cycles": 2, "max_retries_before_resync": 3 },
+  "anti_claim": "Slave is observed to ACK on the first (bad-CRC) attempt, or executes any state change derived from the dropped frame."
+}
