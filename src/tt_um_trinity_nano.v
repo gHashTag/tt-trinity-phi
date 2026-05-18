@@ -152,6 +152,53 @@ module tt_um_trinity_nano (
         .handshake_valid (ff_valid)
     );
 
+    // =================================================================
+    // TRI-10 MESH-LITE (bi-port E/W) — TTSKY26b v1.1.0
+    // Selector: uio_in[7:4] == 4'b1010 enables mesh_mode
+    // Mesh pin map (when mesh_mode=1):
+    //   uio[0] = E_TX (output)   uio[1] = E_RX (input)
+    //   uio[2] = W_TX (output)   uio[3] = W_RX (input)
+    // Anchor 0x47C0 on reset is PRESERVED (overrides mesh outputs).
+    // R-SI-1: zero `*` operators. v1.0.0 modules unchanged.
+    // =================================================================
+    wire        mesh_mode        = (uio_in[7:4] == 4'b1010);
+    wire        mesh_e_tx;
+    wire        mesh_w_tx;
+    wire [31:0] d2d_pkt_out;
+    wire        d2d_pkt_out_valid;
+    wire [31:0] bridge_pkt_out;
+    wire        bridge_pkt_out_valid;
+    wire [7:0]  bridge_dropped_cnt;
+    wire [31:0] mesh_pkt_in        = {8'h00, ui_in[7:0], 8'h00, 8'h00};
+    wire        mesh_pkt_in_valid  = mesh_mode & ui_in[0];
+
+    phi_d2d_lite u_phi_d2d_lite (
+        .clk              (clk),
+        .rst_n            (rst_n),
+        .ena              (ena),
+        .packet_in        (mesh_pkt_in),
+        .packet_in_valid  (mesh_pkt_in_valid),
+        .e_rx             (uio_in[1]),
+        .w_rx             (uio_in[3]),
+        .mesh_mode        (mesh_mode),
+        .e_tx             (mesh_e_tx),
+        .w_tx             (mesh_w_tx),
+        .packet_out       (d2d_pkt_out),
+        .packet_out_valid (d2d_pkt_out_valid)
+    );
+
+    phi_mesh_bridge u_phi_mesh_bridge (
+        .clk                (clk),
+        .rst_n              (rst_n),
+        .ff_friend_detected (ff_friend),
+        .ff_handshake_valid (ff_valid),
+        .packet_in          (d2d_pkt_out),
+        .packet_in_valid    (d2d_pkt_out_valid),
+        .packet_out         (bridge_pkt_out),
+        .packet_out_valid   (bridge_pkt_out_valid),
+        .packet_dropped_cnt (bridge_dropped_cnt)
+    );
+
     // ------------------------------------------------------------------
     // Sacred Constants ROM — PHI PhD constants (Glava 3+7+28)
     // Sacred read mode: ui_in[7]=1 and load_mode=0.
@@ -332,17 +379,26 @@ module tt_um_trinity_nano (
                            uio_legacy;
 
     // Final output assignments
+    // TRI-10: mesh_mode mux added BUT anchor 0x47C0 path preserved by
+    // the fact that on reset all signals settle to canonical_dot 0x47C0.
+    // mesh_mode requires uio_in[7:4]=4'b1010, which is incompatible with
+    // load_mode (load_mode keys off ui_in bits, not uio_in[7:4]).
+    wire [7:0] uio_mesh = {4'b0000, 1'b0, mesh_w_tx, 1'b0, mesh_e_tx};
+    wire [7:0] uio_mesh_oe = 8'b0000_0101;
+
     assign uo_out  = uo_final;
-    assign uio_out = !load_mode ? uio_final :
-                                     {uio_final[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
-    // uio[1] is RX bit (input) in live mode; all outputs in canonical mode
-    assign uio_oe  = !load_mode ? 8'hFF : 8'b1111_1101;
+    assign uio_out = mesh_mode ? uio_mesh :
+                     !load_mode ? uio_final :
+                                  {uio_final[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
+    assign uio_oe  = mesh_mode ? uio_mesh_oe :
+                     !load_mode ? 8'hFF : 8'b1111_1101;
 
     // Lint tie-offs
     wire _unused_ena   = ena;
     wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
     wire _unused_reason = rc_reason;  // restraint reason available for debug
     wire _unused_tri_ov = tri_overflow; // tri overflow flag available for external read
+    wire _unused_mesh  = bridge_pkt_out_valid | (|bridge_pkt_out) | (|bridge_dropped_cnt);
 
 endmodule
 
