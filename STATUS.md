@@ -70,6 +70,24 @@ If a workflow badge is red, **trust the badge over this document**.
 - [ ] **SYNTH-2**   — gate-level (GL) sim of full pinout including POST status path.
 - [ ] **SPEC-1**    — finalise `specs/numeric/formats.t27` cross-check vs `conformance/FORMAT-SPEC-001.json`.
 - [ ] **DOC-1**     — link board-bring-up notes once SILICON-1 is reached (will live in [`BENCHMARKS.md`](BENCHMARKS.md)).
+- [ ] **SPEC-D2D-1** — promote [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) §4 (holographic-routing extension) from draft to a versioned sibling of [`docs/INTERCONNECT_PROTOCOL_V1.md`](docs/INTERCONNECT_PROTOCOL_V1.md) once an integrator commits to writing the RTL.
+- [ ] **SPEC-NMSE-1** — land the harness contracted by [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) and emit a first report under `bench/nmse/`.
+- [ ] **SPEC-DECK-1** — fill out [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) §4.1 (RBB) and §4.2 (CAP_BOOST) with `specs/fpga/*.t27` stubs *before* any RTL is opened.
+- [ ] **SPEC-22FDX-1** — author the projection notebook described in [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) §4 (`bench/22fdx/`), so the 28–120 TOPS/W band is reproducible.
+
+### Next-lineup spec docs (no new RTL claimed)
+
+The following docs landed in this revision; they reorganise existing
+spec material and add planned-only sections. None of them add
+hardware:
+
+- [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) — φ-anchor role layer for D2D / holographic chip-to-chip.
+- [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) — NMSE protocol vs bfloat16, anchored to φ provenance.
+- [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) — RBB / FBB / CAP_BOOST honest status.
+- [`TRI_NET_API.md`](TRI_NET_API.md) — external-integration index.
+- [`WHITEPAPER.md`](WHITEPAPER.md) — narrative hub.
+- [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) — projection / Zenodo bundle plan.
+
 > **Note on prior CI debt.** Earlier revisions of this file tracked three "CI-N" items (the v1.0.0 R-SI-1 violations in `avs_controller_96.v` / `fbb_active_path.v` / `int4_quantizer.v` / `nf4_quantizer.v` / `purkinje_thermal_gate.v`, the malformed `gf_formats.v` header, and the resulting `gds` red). Those are now **resolved on `main`** (commits `9c50309 fix: R-SI-1 compliance + Verilog-2005 syntax for GDS green` and `f174cf4 fix: synthesis translate_on pragma in lane_l_precheck.v`). No action needed from this docs PR.
 
 This list is intentionally short; expand only when an item is completed and a

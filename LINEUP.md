@@ -80,7 +80,7 @@ each commercial part.
 
 ## Cross-repo navigation
 
-- This repo: **φ-anchor**, see [`STATUS.md`](STATUS.md), [`README.md`](README.md), [`CLARA_TRACEABILITY.md`](CLARA_TRACEABILITY.md).
+- This repo: **φ-anchor**, see [`STATUS.md`](STATUS.md), [`README.md`](README.md), [`CLARA_TRACEABILITY.md`](CLARA_TRACEABILITY.md), [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md), [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md), [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md), [`TRI_NET_API.md`](TRI_NET_API.md), [`WHITEPAPER.md`](WHITEPAPER.md), [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md).
 - [tt-trinity-euler](https://github.com/gHashTag/tt-trinity-euler) — e-engine.
 - [tt-trinity-gamma](https://github.com/gHashTag/tt-trinity-gamma) — γ-surface.
 - Tiny Tapeout shuttle index: <https://tinytapeout.com/chips/>.

@@ -25,6 +25,7 @@
 - **How to verify.** `iverilog -I src -o /tmp/tb.out src/*.v test/tb.v && vvp /tmp/tb.out` (expect `0x47C0`). Workflows in [`.github/workflows/`](.github/workflows/) reproduce the same checks on every push. Full reproduction recipes are in [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Why this is unique.** Open SKY130A + Apache-2.0 RTL · ternary / GoldenFloat research path · CLARA-aligned formal-assurance trace · reproducible `.t27 → RTL → shuttle` pipeline. Not a peak-TOPS competitor to commercial NPUs — see [`COMPETITORS.md`](COMPETITORS.md) for the honest positioning.
 - **Documentation package.** [`STATUS.md`](STATUS.md) (readiness ladder) · [`LINEUP.md`](LINEUP.md) (TRI-NET positioning) · [`CLARA_TRACEABILITY.md`](CLARA_TRACEABILITY.md) (assurance evidence map) · [`COMPETITORS.md`](COMPETITORS.md) · [`BENCHMARKS.md`](BENCHMARKS.md).
+- **Next-lineup spec docs (draft, planned-only items clearly labelled).** [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) (φ-anchor role in chip-to-chip) · [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) (NMSE comparison contract) · [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) (RBB / FBB / CAP_BOOST honest status — only FBB is in RTL on φ-anchor today) · [`TRI_NET_API.md`](TRI_NET_API.md) (external-integration index) · [`WHITEPAPER.md`](WHITEPAPER.md) (value-proposition hub) · [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) (22FDX projection + Zenodo bundle plan).
 - **Siblings.** [`tt-trinity-euler`](https://github.com/gHashTag/tt-trinity-euler) (8×2 e-engine safety/control) · [`tt-trinity-gamma`](https://github.com/gHashTag/tt-trinity-gamma) (8×4 γ-surface 32-PE mesh) · `t27` toolchain + numeric registry ([`specs/numeric/`](specs/numeric/)).
 
 ---
@@ -436,6 +437,13 @@ openlane --config ./sky130A/config.tcl --run ./run_gds.tcl
 | Energy/op | educational node | competitive vs Hailo/Mythic at advanced node |
 
 The SKY130A demonstrator validates **architecture**, not absolute silicon performance.
+
+The 22FDX projection row is sourced from
+[`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md), which lists
+the assumptions (Triple-Deck deployed in full, ternary-dominated
+workload, GF16 selected where NMSE permits). Those assumptions also
+identify the gaps: today, only **FBB** of the Triple-Deck is in RTL on
+this chip — see [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md).
 
 ### Green AI Alignment
 

@@ -135,3 +135,15 @@ For M-8 / M-9 / M-10, push to a fork — the workflows do the rest.
   map.
 - [`LINEUP.md`](LINEUP.md) — full TRI-NET line and how φ-anchor relates
   to euler / gamma / t27.
+- [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) — φ-anchor's role in D2D /
+  holographic chip-to-chip; nothing benchmark-relevant is implemented
+  there yet (planned only).
+- [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) — protocol for any
+  future MEASURED NMSE row to live here.
+- [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) — RBB / FBB /
+  CAP_BOOST status backing the projected power column.
+- [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) —
+  canonical source for the 28–120 TOPS/W band cited in the projected
+  table above.
+- [`WHITEPAPER.md`](WHITEPAPER.md) — narrative hub.
+- [`TRI_NET_API.md`](TRI_NET_API.md) — external-integration surface.
