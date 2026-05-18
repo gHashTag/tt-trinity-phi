@@ -35,6 +35,10 @@ project:
 
   source_files:
     - "tt_um_trinity_nano.v"
+    # DePIN v1 modules
+    - "depin_b1_rot.v"
+    - "depin_b2_bandwidth.v"
+    - "depin_b8_did.v"
     - "gf16_mul.v"
     - "gf16_add.v"
     - "gf16_dot4.v"

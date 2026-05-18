@@ -331,18 +331,70 @@ module tt_um_trinity_nano (
                            post_status_mode  ? {lucas_val[7:6], phi_post_ok, phi_post_done, 4'b0000} :
                            uio_legacy;
 
+    // ==================================================================
+    // DePIN Modules — B1 RoT + B2 Bandwidth + B8 DID (depin-v1)
+    // Mux selected via ui_in[7:5] when in canonical (non-load) mode.
+    //   3'b001 -> B1 HW Root-of-Trust response
+    //   3'b010 -> B2 Proof-of-Bandwidth bytes_counter[7:0]
+    //   3'b011 -> B8 DID personhood did_signature
+    //   other  -> existing phi output (preserved)
+    // R-SI-1 compliant. Author: Dmitrii Vasilev (sole author, admin@t27.ai)
+    // ==================================================================
+
+    // B1 — Hardware Root-of-Trust
+    wire [7:0] b1_response;
+    depin_b1_rot u_b1_rot (
+        .clk      (clk),
+        .rst_n    (rst_n),
+        .challenge(uio_in),
+        .response (b1_response)
+    );
+
+    // B2 — Proof-of-Bandwidth counter
+    wire [15:0] b2_bytes_counter;
+    wire [15:0] b2_timestamp;
+    depin_b2_bandwidth u_b2_bw (
+        .clk          (clk),
+        .rst_n        (rst_n),
+        .packet_in    (load_lane_rise),
+        .bytes_counter(b2_bytes_counter),
+        .timestamp    (b2_timestamp)
+    );
+
+    // B8 — DID personhood challenge-response
+    // phi_fingerprint = canonical anchor low byte (0xC0)
+    wire [7:0] b8_did_signature;
+    depin_b8_did u_b8_did (
+        .clk            (clk),
+        .rst_n          (rst_n),
+        .human_challenge(uio_in),
+        .phi_fingerprint(canonical_dot[7:0]),
+        .did_signature  (b8_did_signature)
+    );
+
+    // DePIN command bits: ui_in[7:5] in canonical (non-load, non-sacred, non-crown) mode
+    wire [2:0] depin_cmd = ui_in[7:5];
+    wire depin_active = !load_mode && !sacred_mode && !crown_mode;
+
+    wire [7:0] uo_depin =
+        (depin_active && depin_cmd == 3'b001) ? b1_response           :
+        (depin_active && depin_cmd == 3'b010) ? b2_bytes_counter[7:0] :
+        (depin_active && depin_cmd == 3'b011) ? b8_did_signature      :
+                                                uo_final;
+
     // Final output assignments
-    assign uo_out  = uo_final;
+    assign uo_out  = uo_depin;
     assign uio_out = !load_mode ? uio_final :
                                      {uio_final[7:4], ff_valid, ff_friend, 1'b0, ff_tx};
     // uio[1] is RX bit (input) in live mode; all outputs in canonical mode
     assign uio_oe  = !load_mode ? 8'hFF : 8'b1111_1101;
 
     // Lint tie-offs
-    wire _unused_ena   = ena;
-    wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
-    wire _unused_reason = rc_reason;  // restraint reason available for debug
-    wire _unused_tri_ov = tri_overflow; // tri overflow flag available for external read
+    wire _unused_ena    = ena;
+    wire _unused_tile   = tile_out_valid | (|tile_out_pkt);
+    wire _unused_reason = rc_reason;     // restraint reason available for debug
+    wire _unused_tri_ov = tri_overflow;  // tri overflow flag available for external read
+    wire _unused_b2_ts  = |b2_timestamp; // b2 timestamp available for debug
 
 endmodule
 
