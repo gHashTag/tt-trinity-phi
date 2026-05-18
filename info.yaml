@@ -87,6 +87,8 @@ project:
     # v1.0.0 converters
     - "gf16_to_fp16.v"
     - "gf16_to_posit16.v"
+    # Trinity TRI silicon: champion BPB oracle (TTSKY26c prep)
+    - "champion_bpb_oracle.v"
 
 pinout:
   ui[0]: "load_mode (0=canonical/POST status, 1=packet path)"
