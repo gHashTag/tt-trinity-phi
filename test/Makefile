@@ -22,7 +22,9 @@ PROJECT_SOURCES     = tt_um_trinity_nano.v \
                       lucas_rom.v \
                       hwrng_lfsr.v \
                       restraint_ctrl.v \
-                      tri_token_accumulator.v
+                      tri_token_accumulator.v \
+                      phi_d2d_lite.v \
+                      phi_mesh_bridge.v
 
 ifneq ($(GATES),yes)
   SIM_BUILD         = sim_build/rtl
