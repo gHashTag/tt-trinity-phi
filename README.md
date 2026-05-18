@@ -18,8 +18,20 @@
 
 ---
 
+## TL;DR
+
+- **What this repo is.** `tt-trinity-phi` is the **φ-anchor**: the smallest, 1×1 Tiny Tapeout chip of the TRI-NET line. It is the **reference identity / proof-seed / silicon-provenance** SKU — the chip the other two TRI-NET dies anchor against. Open PDK (SKY130A), Apache-2.0 RTL.
+- **What runs today.** Canonical GF16(2⁴) `dot4(1.0, 2.0, 3.0, 4.0) = 0x47C0` on `{uio_out, uo_out}` at reset; Lucas L₂..L₇ POST proving φ²+φ⁻²=3; CLARA Gap-4 `restraint_ctrl`; die-unique HWRNG; friend/foe handshake; v1.0.0 GF4..GF256 / quantizer / power-module RTL. CI gates: iverilog canonical test, cocotb suite, Yosys synth, Verilator lint, R-SI-1 no-`*` audit, OpenLane2 SKY130A GDS. Submitted to TTSKY26b shuttle (see [`CHANGELOG.md`](CHANGELOG.md)).
+- **How to verify.** `iverilog -I src -o /tmp/tb.out src/*.v test/tb.v && vvp /tmp/tb.out` (expect `0x47C0`). Workflows in [`.github/workflows/`](.github/workflows/) reproduce the same checks on every push. Full reproduction recipes are in [`BENCHMARKS.md`](BENCHMARKS.md).
+- **Why this is unique.** Open SKY130A + Apache-2.0 RTL · ternary / GoldenFloat research path · CLARA-aligned formal-assurance trace · reproducible `.t27 → RTL → shuttle` pipeline. Not a peak-TOPS competitor to commercial NPUs — see [`COMPETITORS.md`](COMPETITORS.md) for the honest positioning.
+- **Documentation package.** [`STATUS.md`](STATUS.md) (readiness ladder) · [`LINEUP.md`](LINEUP.md) (TRI-NET positioning) · [`CLARA_TRACEABILITY.md`](CLARA_TRACEABILITY.md) (assurance evidence map) · [`COMPETITORS.md`](COMPETITORS.md) · [`BENCHMARKS.md`](BENCHMARKS.md).
+- **Siblings.** [`tt-trinity-euler`](https://github.com/gHashTag/tt-trinity-euler) (8×2 e-engine safety/control) · [`tt-trinity-gamma`](https://github.com/gHashTag/tt-trinity-gamma) (8×4 γ-surface 32-PE mesh) · `t27` toolchain + numeric registry ([`specs/numeric/`](specs/numeric/)).
+
+---
+
 ## Table of Contents
 
+- [TL;DR](#tldr)
 - [Quick Start](#quick-start)
 - [What is φ-anchor?](#what-is-φ-anchor)
 - [Sacred Formula](#sacred-formula)
