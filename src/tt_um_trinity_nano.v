@@ -216,6 +216,35 @@ module tt_um_trinity_nano (
     );
 
     // ==================================================================
+    // phi_post_done rising-edge pulse → attest_pulse for $TRI accumulator
+    // phi_post_done is sticky-high after POST step 7; derive 1-cycle pulse
+    // ==================================================================
+    reg  phi_post_done_q;
+    wire phi_post_pulse;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) phi_post_done_q <= 1'b0;
+        else        phi_post_done_q <= phi_post_done;
+    end
+    assign phi_post_pulse = phi_post_done && !phi_post_done_q;
+
+    // ==================================================================
+    // $TRI Token Accumulator — DePIN proof-of-compute reward counter
+    // Reward = 1 token per valid Lucas POST cycle (phi chip rate).
+    // Balance exposed via status mode ui_in[4:2] = 3'b111.
+    // R-SI-1 compliant.  DOI: 10.5281/zenodo.19227877
+    // ==================================================================
+    wire [15:0] tri_balance;
+    wire        tri_overflow;
+    tri_token_accumulator #(.WIDTH(16), .REWARD_BITS(2)) u_tri (
+        .clk           (clk),
+        .rst_n         (rst_n),
+        .attest_pulse  (phi_post_pulse),
+        .reward_amount (2'd1),
+        .token_balance (tri_balance),
+        .overflow_flag (tri_overflow)
+    );
+
+    // ==================================================================
     // Lucas ROM — addressable L_n probe (L₂..L₇ mapped to idx 0..5)
     // ui[3:1] = lucas_idx → uio_out[5:0] in status mode
     // ==================================================================
@@ -281,19 +310,25 @@ module tt_um_trinity_nano (
     // of {ui_in[2],ui_in[3]} high at a time for L₆/L₇), so it does not
     // collide with any existing pin contract.
     // ==================================================================
-    wire status_request    = ui_in[3] && ui_in[2];
+    wire status_request    = ui_in[3] && ui_in[2] && !ui_in[4];
     wire post_status_mode  = status_request && phi_post_done
                               && !load_mode && !sacred_mode && !crown_mode;
 
-    wire [7:0] uo_final = post_status_mode ?
-                          {phi_post_ok, phi_post_done, lucas_val[5:0]} :
+    // $TRI balance readout mode: ui_in[4:2] = 3'b111 (all three bits set)
+    // Exposes tri_balance: uo_out = low byte, uio_out = high byte.
+    // Only active in canonical (non-load, non-sacred, non-crown) mode.
+    wire tri_status_mode   = (ui_in[4:2] == 3'b111)
+                              && !load_mode && !sacred_mode && !crown_mode;
+
+    wire [7:0] uo_final = tri_status_mode   ? tri_balance[7:0]                 :
+                          post_status_mode  ? {phi_post_ok, phi_post_done, lucas_val[5:0]} :
                           (load_mode   ? tile_dbg_result[7:0] :
                            sacred_mode ? sacred_val           :
                            crown_mode  ? crown_byte_out       :
                                          canonical_dot[7:0]);
 
-    wire [7:0] uio_final = post_status_mode ?
-                           {lucas_val[7:6], phi_post_ok, phi_post_done, 4'b0000} :
+    wire [7:0] uio_final = tri_status_mode   ? tri_balance[15:8]                         :
+                           post_status_mode  ? {lucas_val[7:6], phi_post_ok, phi_post_done, 4'b0000} :
                            uio_legacy;
 
     // Final output assignments
@@ -307,6 +342,7 @@ module tt_um_trinity_nano (
     wire _unused_ena   = ena;
     wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
     wire _unused_reason = rc_reason;  // restraint reason available for debug
+    wire _unused_tri_ov = tri_overflow; // tri overflow flag available for external read
 
 endmodule
 
