@@ -201,6 +201,43 @@ linkable from a public page, are listed. Anything else is `VERIFY`.
 
 ---
 
+## 9.1 Filing pack — `.github/issues/`
+
+The plan is **filed-but-not-filed**: 16 child issue markdown bodies +
+one EPIC body live under [`.github/issues/`](../.github/issues/),
+ready to be created as real GitHub issues by
+[`.github/issues/create_issues.sh`](../.github/issues/create_issues.sh)
+(default mode: dry-run).
+
+| Index | Track | Body file |
+|------:|-------|-----------|
+| epic  | —      | [`00_EPIC_2026.md`](../.github/issues/00_EPIC_2026.md) |
+| `#1`  | CL-01  | [`01_CL-01_d2d_drain_on_restraint.md`](../.github/issues/01_CL-01_d2d_drain_on_restraint.md) |
+| `#2`  | CL-02  | [`02_CL-02_coq_lucas_post_trace.md`](../.github/issues/02_CL-02_coq_lucas_post_trace.md) |
+| `#3`  | CL-03  | [`03_CL-03_ed25519_stub_spec.md`](../.github/issues/03_CL-03_ed25519_stub_spec.md) |
+| `#4`  | CL-04  | [`04_CL-04_anchor_mismatch_flag.md`](../.github/issues/04_CL-04_anchor_mismatch_flag.md) |
+| `#5`  | EN-01  | [`05_EN-01_rbb_capboost_stubs.md`](../.github/issues/05_EN-01_rbb_capboost_stubs.md) |
+| `#6`  | EN-02  | [`06_EN-02_22fdx_projection_notebook.md`](../.github/issues/06_EN-02_22fdx_projection_notebook.md) |
+| `#7`  | EN-03  | [`07_EN-03_refuse_ultra_headlines.md`](../.github/issues/07_EN-03_refuse_ultra_headlines.md) |
+| `#8`  | SN-01  | [`08_SN-01_ternary_roundtrip_row.md`](../.github/issues/08_SN-01_ternary_roundtrip_row.md) |
+| `#9`  | SN-02  | [`09_SN-02_spike_d2d_hook.md`](../.github/issues/09_SN-02_spike_d2d_hook.md) |
+| `#10` | SN-03  | [`10_SN-03_anchor_stability_snn_burst.md`](../.github/issues/10_SN-03_anchor_stability_snn_burst.md) |
+| `#11` | PUB-01 | [`11_PUB-01_whitepaper_pdf.md`](../.github/issues/11_PUB-01_whitepaper_pdf.md) |
+| `#12` | PUB-02 | [`12_PUB-02_first_nmse_report.md`](../.github/issues/12_PUB-02_first_nmse_report.md) |
+| `#13` | PUB-03 | [`13_PUB-03_clara_proof_note.md`](../.github/issues/13_PUB-03_clara_proof_note.md) |
+| `#14` | OS-01  | [`14_OS-01_apache_open_pdk_posture.md`](../.github/issues/14_OS-01_apache_open_pdk_posture.md) |
+| `#15` | OS-02  | [`15_OS-02_reference_host_bridge.md`](../.github/issues/15_OS-02_reference_host_bridge.md) |
+| `#16` | OS-03  | [`16_OS-03_pr_template_r5_checklist.md`](../.github/issues/16_OS-03_pr_template_r5_checklist.md) |
+
+The `#0`..`#16` labels are **local plan IDs**, not GitHub issue
+numbers. GitHub will mint real numbers when a maintainer runs
+[`create_issues.sh --apply`](../.github/issues/create_issues.sh).
+The stable cross-reference handle is the **track ID** (`CL-01`,
+`EN-02`, etc.) used throughout this document. See also
+[`.github/issues/ISSUES_SUMMARY.md`](../.github/issues/ISSUES_SUMMARY.md).
+
+---
+
 ## 10. What this document is NOT
 
 - **Not** a funding announcement.

@@ -88,6 +88,7 @@ hardware:
 - [`WHITEPAPER.md`](WHITEPAPER.md) — narrative hub.
 - [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) — projection / Zenodo bundle plan.
 - [`docs/SCIENTIFIC_IMPROVEMENT_PLAN.md`](docs/SCIENTIFIC_IMPROVEMENT_PLAN.md) — 2026 plan (CL-01..CL-04, EN-01..EN-03, SN-01..SN-03, PUB-01..PUB-03, OS-01..OS-03). All targets labelled `target` / `projection` / `VERIFY`.
+- [`.github/issues/`](.github/issues/) — filing pack (1 EPIC + 16 children). IDs `#0..#16` are local placeholders; GitHub numbers minted by [`create_issues.sh`](.github/issues/create_issues.sh) (default: dry-run).
 
 > **Note on prior CI debt.** Earlier revisions of this file tracked three "CI-N" items (the v1.0.0 R-SI-1 violations in `avs_controller_96.v` / `fbb_active_path.v` / `int4_quantizer.v` / `nf4_quantizer.v` / `purkinje_thermal_gate.v`, the malformed `gf_formats.v` header, and the resulting `gds` red). Those are now **resolved on `main`** (commits `9c50309 fix: R-SI-1 compliance + Verilog-2005 syntax for GDS green` and `f174cf4 fix: synthesis translate_on pragma in lane_l_precheck.v`). No action needed from this docs PR.
 
