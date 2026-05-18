@@ -1,0 +1,79 @@
+{
+  "$comment": "Zenodo metadata template for the NEXT tt-trinity-phi deposition. The DOI for this release has NOT yet been minted; the existing line-level DOI 10.5281/zenodo.19227877 covers the prior TRI-NET Trinity Stack bundle. See docs/RELEASE_MANIFEST_TRINET_V1.md for the deposition manifest and the explicit anti-claim.",
+  "title": "tt-trinity-phi — TRI-1 Phi (φ-anchor): verification hardening layer",
+  "upload_type": "software",
+  "description": "Apache-2.0, open-PDK (SKY130A) Tiny Tapeout chip — the φ-anchor reference SKU of the TRI-NET line (phi / e-engine / γ-surface). This release adds a machine-checkable verification layer on top of the v1.0 RTL: a normative claims matrix indexing every numerical claim with anti-claims; golden NMSE reference vectors for GF16 vs bfloat16 (R5-honest, RTL_ONLY provenance); D2D conformance vectors (valid header, bad CRC, unsupported opcode, timeout/retry, multi-chip ordering); a Triple-Decker state-machine spec (IDLE → RBB → FBB → CAP_BOOST → IDLE with brownout / overcurrent fallback); and a spec CI gate. No RTL semantics changed and no measured-silicon claims are made.",
+  "creators": [
+    {
+      "name": "Vasilev, Dmitrii",
+      "$comment_creators": "Single creator inferred from info.yaml `project.author` field; update or extend before deposition is published."
+    }
+  ],
+  "keywords": [
+    "tinytapeout",
+    "sky130",
+    "open-silicon",
+    "asic",
+    "verilog",
+    "tri-net",
+    "phi-anchor",
+    "goldenfloat",
+    "ternary",
+    "fdsoi",
+    "22fdx",
+    "body-bias",
+    "verification",
+    "conformance"
+  ],
+  "license": "Apache-2.0",
+  "access_right": "open",
+  "language": "eng",
+  "communities": [
+    { "identifier": "tinytapeout" }
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.19227877",
+      "relation": "isPartOf",
+      "resource_type": "publication-other",
+      "scheme": "doi",
+      "$comment": "TRI-NET Trinity Stack provenance bundle (prior release)."
+    },
+    {
+      "identifier": "https://github.com/gHashTag/tt-trinity-phi",
+      "relation": "isSupplementTo",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/gHashTag/tt-trinity-euler",
+      "relation": "isPartOf",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/gHashTag/tt-trinity-gamma",
+      "relation": "isPartOf",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "TBD-upon-deposition",
+      "relation": "isVersionOf",
+      "resource_type": "software",
+      "scheme": "doi",
+      "$comment": "Placeholder for the concept DOI assigned by Zenodo when this release is published. Do NOT quote until published."
+    }
+  ],
+  "version": "1.1.0-spec-verification",
+  "publication_date_$comment": "Set automatically by Zenodo upon publication; do NOT pre-populate before deposition.",
+  "doi_$comment": "DO NOT FILL — Zenodo mints the DOI on publication. Quoting a DOI before publication is an R5 honesty violation; see docs/VERIFICATION_CLAIMS_MATRIX.md row VC-NM-6.",
+  "notes": "R5-honest posture preserved: no measured-silicon TOPS/W, no measured NMSE, no fabrication or yield data. Numbers in the bundled docs are labelled MEASURED (CI evidence), PRE-SILICON simulation, PROJECTED (architectural), SPEC (contract), or NOT MEASURED (anti-claim). See docs/VERIFICATION_CLAIMS_MATRIX.md and docs/RELEASE_MANIFEST_TRINET_V1.md.",
+  "references": [
+    "Akopyan et al. — TrueNorth, IEEE TCAD 2015.",
+    "Modha et al. — IBM NorthPole, Science 2023 (DOI: 10.1126/science.adh1174).",
+    "Microscaling MX Formats — arXiv:2310.10537.",
+    "UCIe 2.0 — physical/link layer overview, 2024.",
+    "Google Coral Edge TPU — Coral.ai benchmarks."
+  ]
+}

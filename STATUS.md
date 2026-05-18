@@ -81,12 +81,17 @@ The following docs landed in this revision; they reorganise existing
 spec material and add planned-only sections. None of them add
 hardware:
 
-- [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) — φ-anchor role layer for D2D / holographic chip-to-chip.
-- [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) — NMSE protocol vs bfloat16, anchored to φ provenance.
-- [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) — RBB / FBB / CAP_BOOST honest status.
+- [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) — φ-anchor role layer for D2D / holographic chip-to-chip (claims `VC-D2D-1`..`VC-D2D-5`, `VC-ANCHOR-3`).
+- [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) — NMSE protocol vs bfloat16, anchored to φ provenance (claims `VC-NMSE-1`..`VC-NMSE-4`).
+- [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) — RBB / FBB / CAP_BOOST honest status (claims `VC-DECK-1`..`VC-DECK-3`).
+- [`docs/TRIPLE_DECKER_STATE_MACHINE.md`](docs/TRIPLE_DECKER_STATE_MACHINE.md) — state-machine spec `IDLE → RBB → FBB → CAP_BOOST → IDLE` with brownout fallback (claims `VC-DECK-4`).
+- [`docs/VERIFICATION_CLAIMS_MATRIX.md`](docs/VERIFICATION_CLAIMS_MATRIX.md) — normative index of every numerical claim with evidence + anti-claim.
+- [`docs/vectors/nmse/`](docs/vectors/nmse/) — golden NMSE reference vectors (not silicon).
+- [`conformance/d2d/`](conformance/d2d/) — D2D conformance vectors (valid header, bad CRC, unsupported opcode, timeout/retry, multi-chip ordering).
+- [`scripts/check_trinet_specs.sh`](scripts/check_trinet_specs.sh) — local + CI spec gate ([`.github/workflows/spec-gate.yml`](.github/workflows/spec-gate.yml)).
 - [`TRI_NET_API.md`](TRI_NET_API.md) — external-integration index.
 - [`WHITEPAPER.md`](WHITEPAPER.md) — narrative hub.
-- [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) — projection / Zenodo bundle plan.
+- [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) — projection / Zenodo bundle plan (claims `VC-22FDX-1`..`VC-22FDX-3`).
 - [`docs/SCIENTIFIC_IMPROVEMENT_PLAN.md`](docs/SCIENTIFIC_IMPROVEMENT_PLAN.md) — 2026 plan (CL-01..CL-04, EN-01..EN-03, SN-01..SN-03, PUB-01..PUB-03, OS-01..OS-03). All targets labelled `target` / `projection` / `VERIFY`.
 - [`.github/issues/`](.github/issues/) — filing pack (1 EPIC + 16 children). IDs `#0..#16` are local placeholders; GitHub numbers minted by [`create_issues.sh`](.github/issues/create_issues.sh) (default: dry-run).
 

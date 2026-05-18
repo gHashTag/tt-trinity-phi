@@ -26,13 +26,83 @@
 - **Why this is unique.** Open SKY130A + Apache-2.0 RTL · ternary / GoldenFloat research path · CLARA-aligned formal-assurance trace · reproducible `.t27 → RTL → shuttle` pipeline. Not a peak-TOPS competitor to commercial NPUs — see [`COMPETITORS.md`](COMPETITORS.md) for the honest positioning.
 - **Documentation package.** [`STATUS.md`](STATUS.md) (readiness ladder) · [`LINEUP.md`](LINEUP.md) (TRI-NET positioning) · [`CLARA_TRACEABILITY.md`](CLARA_TRACEABILITY.md) (assurance evidence map) · [`COMPETITORS.md`](COMPETITORS.md) · [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Next-lineup spec docs (draft, planned-only items clearly labelled).** [`D2D_PROTOCOL.md`](D2D_PROTOCOL.md) (φ-anchor role in chip-to-chip) · [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) (NMSE comparison contract) · [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) (RBB / FBB / CAP_BOOST honest status — only FBB is in RTL on φ-anchor today) · [`TRI_NET_API.md`](TRI_NET_API.md) (external-integration index) · [`WHITEPAPER.md`](WHITEPAPER.md) (value-proposition hub) · [`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md) (22FDX projection + Zenodo bundle plan) · [`docs/SCIENTIFIC_IMPROVEMENT_PLAN.md`](docs/SCIENTIFIC_IMPROVEMENT_PLAN.md) (2026 plan — CL / EN / SN / PUB / OS tracks, all targets labelled) · [`.github/issues/`](.github/issues/) (filing pack: 1 EPIC + 16 child issues, IDs `#0..#16` are local placeholders until `create_issues.sh` mints GitHub numbers).
+- **Verification hardening layer (this PR).** [`docs/VERIFICATION_CLAIMS_MATRIX.md`](docs/VERIFICATION_CLAIMS_MATRIX.md) (every numerical claim + anti-claim, indexed by `VC-*` IDs) · [`docs/vectors/nmse/`](docs/vectors/nmse/) (golden NMSE reference vectors — *not* silicon captures) · [`conformance/d2d/`](conformance/d2d/) (5 D2D conformance vectors: valid header, bad CRC, unsupported opcode, timeout/retry, multi-chip ordering) · [`docs/TRIPLE_DECKER_STATE_MACHINE.md`](docs/TRIPLE_DECKER_STATE_MACHINE.md) (`IDLE → RBB → FBB → CAP_BOOST → IDLE` + brownout/overcurrent fallback) · [`docs/ARCHITECTURE_QUICK_WINS.md`](docs/ARCHITECTURE_QUICK_WINS.md) (competitor-informed, repo-grounded next steps) · [`docs/RELEASE_MANIFEST_TRINET_V1.md`](docs/RELEASE_MANIFEST_TRINET_V1.md) (intended Zenodo deposition manifest — DOI **not yet minted** for this release) · [`scripts/check_trinet_specs.sh`](scripts/check_trinet_specs.sh) + [`.github/workflows/spec-gate.yml`](.github/workflows/spec-gate.yml) (spec CI gate).
 - **Siblings.** [`tt-trinity-euler`](https://github.com/gHashTag/tt-trinity-euler) (8×2 e-engine safety/control) · [`tt-trinity-gamma`](https://github.com/gHashTag/tt-trinity-gamma) (8×4 γ-surface 32-PE mesh) · `t27` toolchain + numeric registry ([`specs/numeric/`](specs/numeric/)).
+
+---
+
+## Verification & Reproducibility
+
+This repo ships a **machine-checkable verification layer** on top of the
+RTL. Every numerical claim in the docs/specs has a row in
+[`docs/VERIFICATION_CLAIMS_MATRIX.md`](docs/VERIFICATION_CLAIMS_MATRIX.md)
+with an explicit Claim ID, Location, Evidence/Witness, Harness,
+Status, and **Anti-claim**. The spec gate
+[`scripts/check_trinet_specs.sh`](scripts/check_trinet_specs.sh) (wired
+into CI via [`.github/workflows/spec-gate.yml`](.github/workflows/spec-gate.yml))
+refuses to ship a number that does not have a matrix row.
+
+### Claim status legend
+
+The matrix and all R5-honest docs in this repo use this five-tier legend.
+Mixing tiers across the same table is a spec violation.
+
+| Mark | Tier | Meaning |
+|---|---|---|
+| ✓ | **MEASURED** (silicon) | Result is from a fabricated, characterised die. **No row in this repo is MEASURED-silicon today.** |
+| ⊙ | **PRE-SILICON simulation** | Result is from a CI workflow that exercises real RTL via iverilog / cocotb / Yosys / Verilator / OpenLane2 in this repo. |
+| ◷ | **PROJECTED** (architectural) | Result is derived from RTL intent or first-principles scaling; no PVT-anchored simulation yet. |
+| ▢ | **SPEC** | Result is a contract that the harness must match once it exists; no run has happened. |
+| ✗ | **NOT MEASURED** (anti-claim) | Result is deliberately *not* claimed; the matrix preserves the absence (e.g., `VC-NM-1` no silicon TOPS/W). |
+
+These tiers map directly onto MLCommons measurement methodology and the
+silicon-evidence framing used by IBM NorthPole, Google Edge TPU, and
+NVDLA — see
+[`docs/ARCHITECTURE_QUICK_WINS.md`](docs/ARCHITECTURE_QUICK_WINS.md) for
+the cross-walk.
+
+### Verification assets shipped today
+
+| Asset | Path | Purpose |
+|---|---|---|
+| Claims matrix       | [`docs/VERIFICATION_CLAIMS_MATRIX.md`](docs/VERIFICATION_CLAIMS_MATRIX.md) | Normative index of every numerical claim with anti-claims. |
+| Golden NMSE vectors | [`docs/vectors/nmse/gf16_vs_bfloat16.golden.json`](docs/vectors/nmse/gf16_vs_bfloat16.golden.json) | Seeded reference baselines + tolerances for GF16 vs bf16; `provenance.mode = RTL_ONLY`, no silicon. |
+| D2D conformance     | [`conformance/d2d/`](conformance/d2d/) | 5 vectors: `valid_header.json`, `bad_crc.json`, `unsupported_opcode.json`, `timeout_retry.json`, `multi_chip_ordering.json`. |
+| Triple-Decker FSM   | [`docs/TRIPLE_DECKER_STATE_MACHINE.md`](docs/TRIPLE_DECKER_STATE_MACHINE.md) | `IDLE → RBB → FBB → CAP_BOOST → IDLE` + brownout/overcurrent fallback. |
+| Quick-wins map      | [`docs/ARCHITECTURE_QUICK_WINS.md`](docs/ARCHITECTURE_QUICK_WINS.md) | phi-specific, competitor-informed next steps grounded in `src/`. |
+| Release manifest    | [`docs/RELEASE_MANIFEST_TRINET_V1.md`](docs/RELEASE_MANIFEST_TRINET_V1.md) | Intended Zenodo deposition contents (DOI **not yet minted** for this release). |
+| Spec gate (local + CI) | [`scripts/check_trinet_specs.sh`](scripts/check_trinet_specs.sh), [`.github/workflows/spec-gate.yml`](.github/workflows/spec-gate.yml) | Schema-checks vectors, enforces R5 honesty, validates VC- citations. |
+| Zenodo metadata     | [`.zenodo.json`](.zenodo.json) | Metadata template for the *next* deposition; placeholder DOIs marked `TBD`. |
+
+### Reproduce the spec gate locally
+
+```bash
+bash scripts/check_trinet_specs.sh
+# expect: OK: TRI-NET spec gate passed.
+```
+
+Python 3 is the only host dependency (used for JSON schema checks). The
+optional `t27c` parser is exercised if on `PATH`; the gate skips it
+cleanly when absent.
+
+### Zenodo / DOI status
+
+The existing line-level DOI [`10.5281/zenodo.19227877`](https://doi.org/10.5281/zenodo.19227877)
+anchors the **prior** TRI-NET Trinity-Stack bundle. The verification
+hardening layer on this branch is part of a **future deposition** whose
+DOI has **not yet been minted**.
+[`docs/RELEASE_MANIFEST_TRINET_V1.md`](docs/RELEASE_MANIFEST_TRINET_V1.md)
+and [`.zenodo.json`](.zenodo.json) describe the intended metadata; any
+table that quotes a DOI for this release before deposition is published
+is an R5 violation. The matrix anti-claim `VC-NM-6` is the source of
+truth.
 
 ---
 
 ## Table of Contents
 
 - [TL;DR](#tldr)
+- [Verification & Reproducibility](#verification--reproducibility)
 - [Quick Start](#quick-start)
 - [What is φ-anchor?](#what-is-φ-anchor)
 - [Sacred Formula](#sacred-formula)
@@ -246,6 +316,14 @@ git push
 
 ## ⚡ Performance Benchmarks
 
+> **Tier labels for this section.** All Throughput / Latency / Area / Power
+> rows below are **⊙ PRE-SILICON simulation** (iverilog/cocotb) or
+> **◷ PROJECTED** (architectural). **No row is ✓ MEASURED-silicon.**
+> The exact tier and witness for each numerical claim lives in
+> [`docs/VERIFICATION_CLAIMS_MATRIX.md`](docs/VERIFICATION_CLAIMS_MATRIX.md);
+> the matrix is the source of truth and the spec gate refuses ungrounded
+> claims.
+
 ### Throughput
 
 | Operation | Clock cycles | Throughput @50MHz | Notes |
@@ -431,19 +509,23 @@ openlane --config ./sky130A/config.tcl --run ./run_gds.tcl
 
 ### Honest Performance Disclosure (R5-HONEST)
 
-| Metric | Measured (SKY130 130nm) | Architecture target (22FDX 22nm projection) |
-|---|---|---|
-| TOPS/W | proof-of-concept node | 28-120 TOPS/W (peer-review pending) |
-| Energy/op | educational node | competitive vs Hailo/Mythic at advanced node |
+| Metric | Tier | Value | Matrix row |
+|---|---|---|---|
+| TOPS/W on SKY130A demonstrator | ✗ NOT MEASURED | no silicon characterisation in repo | `VC-NM-1` |
+| TOPS/W on 22FDX (architectural projection) | ◷ PROJECTED | **28–120 TOPS/W band** (never a point estimate) | `VC-22FDX-1` |
+| GF16 vs bfloat16 NMSE on D-1..D-6 | ▢ SPEC (golden vectors) | reference baselines in [`docs/vectors/nmse/`](docs/vectors/nmse/); no silicon NMSE | `VC-NMSE-1..4` |
+| Canonical 0x47C0 anchor (iverilog) | ⊙ PRE-SILICON | passes on every push | `VC-ANCHOR-1` |
+| Triple-Deck on φ-anchor | — | FBB at SYNTH; RBB and CAP_BOOST are planned-only | `VC-DECK-1..3` |
+
+The 22FDX band is sourced from
+[`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md), assumes
+Triple-Deck deployed in full, and remains **band-only** — a single
+point estimate is an R5 violation. Only **FBB** of the Triple-Deck is
+in RTL on this chip — see
+[`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) and the state-machine
+spec [`docs/TRIPLE_DECKER_STATE_MACHINE.md`](docs/TRIPLE_DECKER_STATE_MACHINE.md).
 
 The SKY130A demonstrator validates **architecture**, not absolute silicon performance.
-
-The 22FDX projection row is sourced from
-[`TOPS_W_22FDX_PROJECTION.md`](TOPS_W_22FDX_PROJECTION.md), which lists
-the assumptions (Triple-Deck deployed in full, ternary-dominated
-workload, GF16 selected where NMSE permits). Those assumptions also
-identify the gaps: today, only **FBB** of the Triple-Deck is in RTL on
-this chip — see [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md).
 
 ### Green AI Alignment
 

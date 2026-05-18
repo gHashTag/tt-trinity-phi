@@ -1,0 +1,65 @@
+{
+  "$schema": "tt-trinity-phi/d2d-conformance-vector/1.0",
+  "scenario_id": "D2D-VEC-5",
+  "scenario_name": "Multi-chip ordering — wired-AND ACK from Euler + Gamma",
+  "claims_matrix_rows": ["VC-D2D-3", "VC-D2D-4"],
+  "protocol_version": "1.0",
+  "protocol_ref": "docs/INTERCONNECT_PROTOCOL_V1.md",
+  "spec_section": "§2.2 Wire C open-drain / §4 Logical Layer",
+  "expected_outcome": "wired_and_ack_complete",
+  "description": [
+    "Phi broadcasts a BROADCAST (TYPE=0xC1) frame addressed to both",
+    "slaves (Euler and Gamma). Each slave independently asserts ACK on",
+    "Wire C (open-drain low). The wired-AND on the board means Phi",
+    "observes Wire C as low while ANY slave is asserting, and high",
+    "only when ALL slaves have released.",
+    "",
+    "Ordering: Euler may release earlier than Gamma; the conformant",
+    "behaviour is that Phi reads ACK-complete only on the cycle when",
+    "the LAST slave releases. Internal slave order MUST NOT be",
+    "observable from the wire.",
+    "",
+    "This vector models two valid orderings (Euler-first-release and",
+    "Gamma-first-release) and asserts both produce the same Phi-side",
+    "observation of ACK-complete."
+  ],
+  "frames": [
+    {
+      "direction": "phi_to_slaves",
+      "type_byte": "0xC1",
+      "type_name": "BROADCAST",
+      "len": 1,
+      "payload": ["0x47"],
+      "payload_note": "BROADCAST command byte; both slaves are addressed",
+      "crc8": "0x6D",
+      "crc_valid": true
+    }
+  ],
+  "wire_trace": [
+    { "cycle": 0,  "phase": "IDLE",       "wire_c_ack": "high" },
+    { "cycle": 1,  "phase": "LOAD_PHASE", "ui_in_byte": "0xC1" },
+    { "cycle": 2,  "phase": "LOAD_PHASE", "ui_in_byte": "0x01" },
+    { "cycle": 3,  "phase": "LOAD_PHASE", "ui_in_byte": "0x47" },
+    { "cycle": 4,  "phase": "LOAD_PHASE", "ui_in_byte": "0x6D", "note": "CRC byte" },
+    { "cycle": 5,  "phase": "EOF" },
+    { "cycle": 6,  "phase": "EOF" },
+    { "cycle": 7,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "high" },
+    { "cycle": 8,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 1, "wire_c_ack": "low",  "drivers": ["euler", "gamma"], "note": "Both slaves assert (open-drain low)" },
+    { "cycle": 9,  "phase": "SYNC_BURST", "wire_b_sync_strobe": 0, "wire_c_ack": "low",  "drivers": ["gamma"],          "note": "Euler releases first; Gamma still holds low" },
+    { "cycle": 10, "phase": "SYNC_BURST", "wire_b_sync_strobe": 0, "wire_c_ack": "high", "drivers": [],                  "note": "Gamma releases; pull-up wins; Phi reads ACK-complete" },
+    { "cycle": 11, "phase": "IDLE",       "wire_c_ack": "high" }
+  ],
+  "alternative_orderings": [
+    {
+      "name": "gamma_releases_first",
+      "wire_c_ack_per_cycle": ["high", "low", "low", "high"],
+      "drivers_per_cycle":   [[], ["euler","gamma"], ["euler"], []],
+      "note": "Phi-side observation is identical: ACK-complete only when ALL slaves release."
+    }
+  ],
+  "expected_state_transitions": ["IDLE", "LOAD_PHASE", "EOF", "SYNC_BURST", "IDLE"],
+  "expected_counters": { "err_cnt_delta": 0, "retry_cnt_delta": 0 },
+  "topology_assumption": { "n_slaves": 2, "ack_wire": "open-drain wired-AND", "pull_up_ohm": 10000, "wire_c_low_drivers": "any subset of {euler, gamma}" },
+  "anti_claim": "Phi reads ACK-complete while any addressed slave is still pulling Wire C low; or the wire-level trace reveals slave identity (a wired-AND must not).",
+  "scaling_note": "VC-D2D-4 also captures that scaling N>2 needs a new arbitration scheme; this vector covers N=2 only."
+}
