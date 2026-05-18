@@ -338,11 +338,23 @@ module tt_um_trinity_nano (
     // uio[1] is RX bit (input) in live mode; all outputs in canonical mode
     assign uio_oe  = !load_mode ? 8'hFF : 8'b1111_1101;
 
+    // ---- Trinity TRI silicon: champion BPB oracle (TTSKY26c prep) ----
+    // R-SI-1 clean, pure combinational ROM. Folded into _unused_bpb below.
+    // Selector wired off ui_in[1:0]; does not disturb anchor 0x47C0.
+    wire [15:0] bpb_data;
+    wire        bpb_valid;
+    champion_bpb_oracle u_bpb_oracle (
+        .sel       (ui_in[1:0]),
+        .data_out  (bpb_data),
+        .valid     (bpb_valid)
+    );
+
     // Lint tie-offs
     wire _unused_ena   = ena;
     wire _unused_tile  = tile_out_valid | (|tile_out_pkt);
     wire _unused_reason = rc_reason;  // restraint reason available for debug
     wire _unused_tri_ov = tri_overflow; // tri overflow flag available for external read
+    wire _unused_bpb    = &{bpb_data, bpb_valid}; // champion BPB oracle tie-off
 
 endmodule
 
