@@ -98,3 +98,4 @@ already present and linked.
 - [`GF16_BFLOAT16_NMSE.md`](GF16_BFLOAT16_NMSE.md) — NMSE protocol.
 - [`TRIPLE_DECK_STATUS.md`](TRIPLE_DECK_STATUS.md) — power-deck status.
 - [`TRI_NET_API.md`](TRI_NET_API.md) — external-integration index.
+- [`docs/SCIENTIFIC_IMPROVEMENT_PLAN.md`](docs/SCIENTIFIC_IMPROVEMENT_PLAN.md) — 2026 scientific improvement plan (φ-anchor view), `target` / `projection` / `VERIFY` labelled.

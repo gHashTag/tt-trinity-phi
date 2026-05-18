@@ -147,3 +147,4 @@ For M-8 / M-9 / M-10, push to a fork — the workflows do the rest.
   table above.
 - [`WHITEPAPER.md`](WHITEPAPER.md) — narrative hub.
 - [`TRI_NET_API.md`](TRI_NET_API.md) — external-integration surface.
+- [`docs/SCIENTIFIC_IMPROVEMENT_PLAN.md`](docs/SCIENTIFIC_IMPROVEMENT_PLAN.md) — 2026 plan; success-metrics table (§8) points back at this file.
