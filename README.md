@@ -31,6 +31,45 @@
 
 ---
 
+## TRI-NET Positioning
+
+> **TRI-NET — verifiable open silicon stack for trustworthy AI: identity (Φ), reasoning (E), inference (Γ). One math anchor, three chips, zero closed IP.**
+
+### Φ Identity Layer — Root of Trust
+
+`tt-trinity-phi` is the **identity foundation** of the TRI-NET stack. As the smallest die (1×1 tile, 51 modules, 6132 lines of RTL), Phi's singular mission is attestation: proving at power-up that this silicon is what it claims to be. The Lucas POST sequence (`phi_anchor_post`) verifies φ²+φ⁻²=3 in hardware via discrete recurrence, the `hwrng_lfsr` generates a die-unique nonce for each boot, and `restraint_ctrl` enforces CLARA Gap-4 bounded rationality. Phi carries the DePIN accumulator (`tri_token_accumulator`) and the Mesh-lite v1.1.0 E/W bi-port bridge for die-to-die connectivity.
+
+In the TRI-NET trust model, Phi answers the question: **"I exist, I have not been substituted, and my boot is mathematically provable."** It is the root every higher layer anchors against — Euler's reasoning layer and Gamma's inference surface both chain their attestation receipts to the identity proof Phi establishes on reset.
+
+### Cross-Die Anchor 0x47C0 — Theorem 36.1
+
+Every TRI-NET die asserts `{uio_out, uo_out} = 0x47C0` on reset. This value is not a magic constant — it is derived from first principles: φ²+φ⁻²=3 (the Lucas L₂ identity) implies `dot4(1,2,3,4) = 0x47C0` in GF16. This derivation is formalised as **PhD Theorem 36.1** (Chapter 36, `flos_70.tex`). Because all three dies independently compute the same anchor from the same mathematical axiom, a multi-chip board can perform cross-die liveness verification without any shared secret. DOI: [10.5281/zenodo.19227877](https://doi.org/10.5281/zenodo.19227877).
+
+*"The boot you can prove."*
+
+### Sibling Chips
+
+| Chip | Role | Repository |
+|---|---|---|
+| **Φ Phi** (this repo) | Identity Layer — Root of Trust | [tt-trinity-phi](https://github.com/gHashTag/tt-trinity-phi) |
+| **E Euler** | Reasoning Layer — Verifiable AI Safety (10 CLARA Gaps) | [tt-trinity-euler](https://github.com/gHashTag/tt-trinity-euler) |
+| **Γ Gamma** | Inference Layer — Neuromorphic Surface | [tt-trinity-gamma](https://github.com/gHashTag/tt-trinity-gamma) |
+
+### TRI-NET vs. Alternatives — What Others Cannot Offer
+
+| Property | TRI-NET | Tenstorrent | Etched | Groq |
+|---|---|---|---|---|
+| Open RTL (Apache-2.0) | ✅ | partial | ❌ | ❌ |
+| Math-anchored boot (Lucas POST) | ✅ | ❌ | ❌ | ❌ |
+| CLARA AI Safety Gaps (hardware) | ✅ 10 gaps | ❌ | ❌ | ❌ |
+| On-die DePIN token accumulator | ✅ | ❌ | ❌ | ❌ |
+| Cross-die canonical anchor 0x47C0 | ✅ Theorem 36.1 | ❌ | ❌ | ❌ |
+| Sub-$50 SKU | ✅ Phi ~$2.50 | ❌ | ❌ | ❌ |
+
+TRI-NET competes on **verifiability/$**, not TOPS/$. Performance reference: ~1 GOPS @ ~50 MHz @ ~1 W ternary (projected).
+
+---
+
 ## Verification & Reproducibility
 
 This repo ships a **machine-checkable verification layer** on top of the
