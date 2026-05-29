@@ -10,7 +10,7 @@
 
 > One of three neurons of **Trinity TRI-NET** — three sacred constants embodied in silicon:
 >
-> - **φ-anchor** → **THIS REPO** (1×1, Lucas POST proving φ²+φ⁻²=3, CLARA Gap-4)
+> - **φ-anchor** → **THIS REPO** (1×1, Lucas POST checking φ²+φ⁻²=3, CLARA Gap-4)
 > - **e-engine** → [tt-trinity-euler](https://github.com/gHashTag/tt-trinity-euler) (8×2, 18 SUPER-CROWN modules)
 > - **γ-surface** → [tt-trinity-gamma](https://github.com/gHashTag/tt-trinity-gamma) (8×4, 32 PE full mesh)
 >
@@ -21,7 +21,7 @@
 ## TL;DR
 
 - **What this repo is.** `tt-trinity-phi` is the **φ-anchor**: the smallest, 1×1 Tiny Tapeout chip of the TRI-NET line. It is the **reference identity / proof-seed / silicon-provenance** SKU — the chip the other two TRI-NET dies anchor against. Open PDK (SKY130A), Apache-2.0 RTL.
-- **What runs today.** Canonical GF16(2⁴) `dot4(1.0, 2.0, 3.0, 4.0) = 0x47C0` on `{uio_out, uo_out}` at reset; Lucas L₂..L₇ POST proving φ²+φ⁻²=3; CLARA Gap-4 `restraint_ctrl`; die-unique HWRNG; friend/foe handshake; v1.0.0 GF4..GF256 / quantizer / power-module RTL. CI gates: iverilog canonical test, cocotb suite, Yosys synth, Verilator lint, R-SI-1 no-`*` audit, OpenLane2 SKY130A GDS. Submitted to TTSKY26b shuttle (see [`CHANGELOG.md`](CHANGELOG.md)).
+- **What runs today.** Canonical GF16(2⁴) `dot4(1.0, 2.0, 3.0, 4.0) = 0x47C0` on `{uio_out, uo_out}` at reset; Lucas L₂..L₇ POST checking the identity φ²+φ⁻²=3; CLARA Gap-4 `restraint_ctrl`; die-unique HWRNG; friend/foe handshake; v1.0.0 GF4..GF256 / quantizer / power-module RTL. CI gates: iverilog canonical test, cocotb suite, Yosys synth, Verilator lint, R-SI-1 no-`*` audit, OpenLane2 SKY130A GDS. Submitted to TTSKY26b shuttle (see [`CHANGELOG.md`](CHANGELOG.md)).
 - **How to verify.** `iverilog -I src -o /tmp/tb.out src/*.v test/tb.v && vvp /tmp/tb.out` (expect `0x47C0`). Workflows in [`.github/workflows/`](.github/workflows/) reproduce the same checks on every push. Full reproduction recipes are in [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Why this is unique.** Open SKY130A + Apache-2.0 RTL · ternary / GoldenFloat research path · CLARA-aligned formal-assurance trace · reproducible `.t27 → RTL → shuttle` pipeline. Not a peak-TOPS competitor to commercial NPUs — see [`COMPETITORS.md`](COMPETITORS.md) for the honest positioning.
 - **Documentation package.** [`STATUS.md`](STATUS.md) (readiness ladder) · [`LINEUP.md`](LINEUP.md) (TRI-NET positioning) · [`CLARA_TRACEABILITY.md`](CLARA_TRACEABILITY.md) (assurance evidence map) · [`COMPETITORS.md`](COMPETITORS.md) · [`BENCHMARKS.md`](BENCHMARKS.md).
@@ -37,15 +37,15 @@
 
 ### Φ Identity Layer — Root of Trust
 
-`tt-trinity-phi` is the **identity foundation** of the TRI-NET stack. As the smallest die (1×1 tile, 51 modules, 6132 lines of RTL), Phi's singular mission is attestation: proving at power-up that this silicon is what it claims to be. The Lucas POST sequence (`phi_anchor_post`) verifies φ²+φ⁻²=3 in hardware via discrete recurrence, the `hwrng_lfsr` generates a die-unique nonce for each boot, and `restraint_ctrl` enforces CLARA Gap-4 bounded rationality. Phi carries the DePIN accumulator (`tri_token_accumulator`) and the Mesh-lite v1.1.0 E/W bi-port bridge for die-to-die connectivity.
+`tt-trinity-phi` is the **identity foundation** of the TRI-NET stack. As the smallest die (1×1 tile, 51 modules, 6132 lines of RTL), Phi's singular mission is attestation: proving at power-up that this silicon is what it claims to be. The Lucas POST sequence (`phi_anchor_post`) checks the identity φ²+φ⁻²=3 in hardware via discrete recurrence (the identity is a theorem; the POST verifies the silicon reproduces it), the `hwrng_lfsr` generates a die-unique nonce for each boot, and `restraint_ctrl` enforces CLARA Gap-4 bounded rationality. Phi carries the DePIN accumulator (`tri_token_accumulator`) and the Mesh-lite v1.1.0 E/W bi-port bridge for die-to-die connectivity.
 
-In the TRI-NET trust model, Phi answers the question: **"I exist, I have not been substituted, and my boot is mathematically provable."** It is the root every higher layer anchors against — Euler's reasoning layer and Gamma's inference surface both chain their attestation receipts to the identity proof Phi establishes on reset.
+In the TRI-NET trust model, Phi answers the question: **"I exist, I have not been substituted, and my boot reproduces the expected anchor."** It is the root every higher layer anchors against — Euler's reasoning layer and Gamma's inference surface both chain their attestation receipts to the identity anchor Phi reproduces on reset (a deterministic POST / provenance fingerprint, not a cryptographic proof).
 
 ### Cross-Die Anchor 0x47C0 — Theorem 36.1
 
-Every TRI-NET die asserts `{uio_out, uo_out} = 0x47C0` on reset. This value is not a magic constant — it is derived from first principles: φ²+φ⁻²=3 (the Lucas L₂ identity) implies `dot4(1,2,3,4) = 0x47C0` in GF16. This derivation is formalised as **PhD Theorem 36.1** (Chapter 36, `flos_70.tex`). Because all three dies independently compute the same anchor from the same mathematical axiom, a multi-chip board can perform cross-die liveness verification without any shared secret. DOI: [10.5281/zenodo.19227877](https://doi.org/10.5281/zenodo.19227877).
+Every TRI-NET die asserts `{uio_out, uo_out} = 0x47C0` on reset. This value is not a magic constant — it is derived from first principles: φ²+φ⁻²=3 (the Lucas L₂ identity) implies `dot4(1,2,3,4) = 0x47C0` in GF16. This derivation is formalised as **PhD Theorem 36.1** (Chapter 36, `flos_70.tex`). Because all three dies independently compute the same anchor from the same mathematical identity, a multi-chip board can use it as a deterministic POST / build-provenance fingerprint without any shared secret — this is a liveness/provenance check, **not** a cryptographic proof of correctness (a returned die emitting a value ≠ 0x47C0 would refute shared provenance). DOI: [10.5281/zenodo.19227877](https://doi.org/10.5281/zenodo.19227877).
 
-*"The boot you can prove."*
+*"The boot you can verify."*
 
 ### Sibling Chips
 
@@ -252,7 +252,7 @@ This chip is the **φ^p** factor — the golden anchor.
 | `gf16_dot4.v` | Canonical 0x47C0 anchor | ~50 | Cross-die TG-TRIAD-X |
 | `gf16_mul.v` | XOR-based GF16 multiply | ~50 | R-SI-1 compliant (0 DSP) |
 | `trinity_gf16_tile.v` | Packet-path compute tile | ~250 | Full TRN protocol |
-| `phi_anchor_post.v` | Lucas L₂..L₇ POST | ~120 | Proves φ²+φ⁻²=3 |
+| `phi_anchor_post.v` | Lucas L₂..L₇ POST | ~120 | Checks φ²+φ⁻²=3 at reset |
 | `lucas_rom.v` | Addressable L_n probe | ~30 | Host verification |
 | `hwrng_lfsr.v` | 16-bit die-unique nonce | ~20 | Chaotic entropy |
 | `restraint_ctrl.v` | CLARA Gap-4 bounded rationality | ~100 | AI safety |
@@ -269,7 +269,7 @@ This chip is the **φ^p** factor — the golden anchor.
 
 ### Algorithm
 
-Proves φ²+φ⁻²=3 via discrete Lucas recurrence:
+Checks the identity φ²+φ⁻²=3 via discrete Lucas recurrence:
 
 ```
 L₁ = 1, L₂ = 3
@@ -284,7 +284,7 @@ Any mismatch latches `phi_ok=0` (sticky-low POST failure).
 
 By Binet's formula on Lucas numbers: `L₂ = φ² + φ⁻² = 3`
 
-This is the **sacred anchor** — mathematical proof that this silicon embodies the golden ratio.
+The identity `L₂ = φ² + φ⁻² = 3` is a theorem (Binet); the POST checks that the silicon reproduces it bit-exactly at reset — an attestation/provenance check, not a new mathematical proof.
 
 ---
 
