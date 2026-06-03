@@ -101,3 +101,16 @@ jobs:
 
       - name: Verify staged gf16_v2 fix (corrects the gf16_mul MAC defect)
         run: python3 test/gf16_v2_verify.py
+
+  width-defect-gate:
+    name: Width/range defect gate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Verilator
+        run: sudo apt-get update && sudo apt-get install -y verilator python3
+
+      - name: No new 'field one bit too narrow' defects (value-overflow / out-of-range select)
+        run: python3 test/width_gate.py
