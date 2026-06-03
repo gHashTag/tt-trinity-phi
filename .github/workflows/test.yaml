@@ -88,3 +88,16 @@ jobs:
           yosys -p "read_verilog -I src src/*.v; \
                     hierarchy -top tt_um_trinity_nano; \
                     proc; opt; stat" | grep '\$mul' || echo "No multipliers found (R-SI-1 compliant)"
+
+  gf16-fix-verify:
+    name: GF16 v2 arithmetic fix verification
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install IVerilog
+        run: sudo apt-get update && sudo apt-get install -y iverilog python3
+
+      - name: Verify staged gf16_v2 fix (corrects the gf16_mul MAC defect)
+        run: python3 test/gf16_v2_verify.py
