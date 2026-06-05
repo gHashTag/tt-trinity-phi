@@ -127,3 +127,16 @@ jobs:
 
       - name: gf8..gf256 adders vs exact-rational reference (<= 1 ULP)
         run: python3 test/gf_add_sweep.py
+
+  instantiated-audit:
+    name: Instantiated-subsystem conformance audit (Phi blocks)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install IVerilog
+        run: sudo apt-get update && sudo apt-get install -y iverilog python3
+
+      - name: Phi blocks (phi_anchor_post, sacred_constants_rom, phi_mesh_bridge, phi_d2d_lite)
+        run: python3 test/phi_audit.py
