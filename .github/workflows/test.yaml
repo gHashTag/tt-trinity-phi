@@ -114,3 +114,16 @@ jobs:
 
       - name: No new 'field one bit too narrow' defects (value-overflow / out-of-range select)
         run: python3 test/width_gate.py
+
+  gfn-add-sweep:
+    name: GoldenFloat gfN adder functional sweep
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install IVerilog
+        run: sudo apt-get update && sudo apt-get install -y iverilog python3
+
+      - name: gf8..gf256 adders vs exact-rational reference (<= 1 ULP)
+        run: python3 test/gf_add_sweep.py
