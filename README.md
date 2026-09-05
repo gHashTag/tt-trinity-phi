@@ -3,12 +3,13 @@
 [![GDS](https://github.com/gHashTag/tt-trinity-phi/actions/workflows/gds.yaml/badge.svg)](https://github.com/gHashTag/tt-trinity-phi/actions/workflows/gds.yaml)
 [![R-SI-1](https://img.shields.io/badge/R--SI--1-0%20%2A%20ops-brightgreen)](docs/R-SI-1.md)
 [![Verilog-2005](https://img.shields.io/badge/Verilog--2005-OK-brightgreen)](docs/VERILOG-2005.md)
-[![Submit](https://img.shields.io/badge/TTSKY26b-Phi%20anchor-orange)](https://app.tinytapeout.com/shuttles/ttsky26b)
+[![Status](https://img.shields.io/badge/TTSKY26b-withdrawn%20before%20fabrication%2C%20no%20die-lightgrey)](https://app.tinytapeout.com/shuttles/ttsky26b)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Sacred](https://img.shields.io/badge/sacred--constant-%CF%86%20%E2%89%88%201.61803-purple)](#sacred-formula)
 [![CLARA](https://img.shields.io/badge/CLARA-1%20gap-green)](#darpa-clara-ai-safety)
+> **Status (2026-09-05).** The TTSKY26b submission of this design was withdrawn before fabrication and refunded; no die exists. Every result in this repository is RTL simulation or the Artix-7 (XC7A200T) FPGA prototype; the word *silicon* below names the target, not a measured chip.
 
-> One of three neurons of **Trinity TRI-NET** — three sacred constants embodied in silicon:
+> One of three neurons of **Trinity TRI-NET** — three sacred constants designed for silicon (no die fabricated):
 >
 > - **φ-anchor** → **THIS REPO** (1×1, Lucas POST checking φ²+φ⁻²=3, CLARA Gap-4)
 > - **e-engine** → [tt-trinity-euler](https://github.com/gHashTag/tt-trinity-euler) (8×2, 18 SUPER-CROWN modules)
@@ -20,7 +21,7 @@
 
 ## TL;DR
 
-- **What this repo is.** `tt-trinity-phi` is the **φ-anchor**: the smallest, 1×1 Tiny Tapeout chip of the TRI-NET line. It is the **reference identity / proof-seed / silicon-provenance** SKU — the chip the other two TRI-NET dies anchor against. Open PDK (SKY130A), Apache-2.0 RTL.
+- **What this repo is.** `tt-trinity-phi` is the **φ-anchor**: the smallest, 1×1 Tiny Tapeout chip of the TRI-NET line. It is the **reference identity / proof-seed / provenance** SKU — the chip the other two TRI-NET dies anchor against. Open PDK (SKY130A), Apache-2.0 RTL.
 - **What runs today.** Canonical GF16(2⁴) `dot4(1.0, 2.0, 3.0, 4.0) = 0x47C0` on `{uio_out, uo_out}` at reset; Lucas L₂..L₇ POST checking the identity φ²+φ⁻²=3; CLARA Gap-4 `restraint_ctrl`; die-unique HWRNG; friend/foe handshake; v1.0.0 GF4..GF256 / quantizer / power-module RTL. CI gates: iverilog canonical test, cocotb suite, Yosys synth, Verilator lint, R-SI-1 no-`*` audit, OpenLane2 SKY130A GDS. Submitted to TTSKY26b shuttle (see [`CHANGELOG.md`](CHANGELOG.md)).
 - **How to verify.** `iverilog -I src -o /tmp/tb.out src/*.v test/tb.v && vvp /tmp/tb.out` (expect `0x47C0`). Workflows in [`.github/workflows/`](.github/workflows/) reproduce the same checks on every push. Full reproduction recipes are in [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Why this is unique.** Open SKY130A + Apache-2.0 RTL · ternary / GoldenFloat research path · CLARA-aligned formal-assurance trace · reproducible `.t27 → RTL → shuttle` pipeline. Not a peak-TOPS competitor to commercial NPUs — see [`COMPETITORS.md`](COMPETITORS.md) for the honest positioning.
@@ -33,11 +34,11 @@
 
 ## TRI-NET Positioning
 
-> **TRI-NET — verifiable open silicon stack for trustworthy AI: identity (Φ), reasoning (E), inference (Γ). One math anchor, three chips, zero closed IP.**
+> **TRI-NET — verifiable open hardware stack (RTL + FPGA; no die yet) for trustworthy AI: identity (Φ), reasoning (E), inference (Γ). One math anchor, three chips, zero closed IP.**
 
 ### Φ Identity Layer — Root of Trust
 
-`tt-trinity-phi` is the **identity foundation** of the TRI-NET stack. As the smallest die (1×1 tile, 51 modules, 6132 lines of RTL), Phi's singular mission is attestation: proving at power-up that this silicon is what it claims to be. The Lucas POST sequence (`phi_anchor_post`) checks the identity φ²+φ⁻²=3 in hardware via discrete recurrence (the identity is a theorem; the POST verifies the silicon reproduces it), the `hwrng_lfsr` generates a die-unique nonce for each boot, and `restraint_ctrl` enforces CLARA Gap-4 bounded rationality. Phi carries the DePIN accumulator (`tri_token_accumulator`) and the Mesh-lite v1.1.0 E/W bi-port bridge for die-to-die connectivity.
+`tt-trinity-phi` is the **identity foundation** of the TRI-NET stack. As the smallest design (1×1 tile, 51 modules, 6132 lines of RTL), Phi's singular mission is attestation: proving at power-up that this silicon is what it claims to be. The Lucas POST sequence (`phi_anchor_post`) checks the identity φ²+φ⁻²=3 in hardware via discrete recurrence (the identity is a theorem; the POST verifies the silicon reproduces it), the `hwrng_lfsr` generates a die-unique nonce for each boot, and `restraint_ctrl` enforces CLARA Gap-4 bounded rationality. Phi carries the DePIN accumulator (`tri_token_accumulator`) and the Mesh-lite v1.1.0 E/W bi-port bridge for die-to-die connectivity.
 
 In the TRI-NET trust model, Phi answers the question: **"I exist, I have not been substituted, and my boot reproduces the expected anchor."** It is the root every higher layer anchors against — Euler's reasoning layer and Gamma's inference surface both chain their attestation receipts to the identity anchor Phi reproduces on reset (a deterministic POST / provenance fingerprint, not a cryptographic proof).
 
