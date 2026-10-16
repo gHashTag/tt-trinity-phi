@@ -18,6 +18,9 @@ LOC  = re.compile(r"\.v:\d+:\d+:")
 # Frozen-as-taped-out silicon source with a documented defect (fix is in *_v2 /
 # the t27 master); not a regression, so it must not fail the gate.
 ALLOWLIST = {"gf16_mul.v"}
+# Files that instantiate a module defined in another src file get that file on the same command line, so the
+# lint still elaborates them (the adder's sum uses gf16_fa1 of gf16_sig_mul10.v). Hits are still reported per file.
+DEPS = {"gf16_v2_add.v": ["gf16_sig_mul10.v"]}
 
 def main():
     if not os.path.isdir(SRC):
@@ -26,7 +29,8 @@ def main():
     for fn in sorted(os.listdir(SRC)):
         if not fn.endswith(".v"):
             continue
-        out = subprocess.run(["verilator", "--lint-only", "-Wall", os.path.join(SRC, fn)],
+        out = subprocess.run(["verilator", "--lint-only", "-Wall", os.path.join(SRC, fn)]
+                             + [os.path.join(SRC, d) for d in DEPS.get(fn, [])],
                              capture_output=True, text=True).stderr
         hits = sorted(set(l.strip() for l in out.splitlines()
                           if any(s in l for s in SIG) and "MULTITOP" not in l and LOC.search(l)))

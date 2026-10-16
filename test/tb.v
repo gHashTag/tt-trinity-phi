@@ -8,10 +8,13 @@
 
 module tb ();
 
-    // Dump waves
+    // Waves only on request (make PLUSARGS=+vcd): the pin tests run for a very large number
+    // of cycles and a default dump would be gigabytes.
     initial begin
-        $dumpfile("tb.vcd");
-        $dumpvars(0, tb);
+        if ($test$plusargs("vcd")) begin
+            $dumpfile("tb.vcd");
+            $dumpvars(0, tb);
+        end
         #1;
     end
 

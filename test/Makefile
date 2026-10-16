@@ -1,30 +1,25 @@
-# cocotb Makefile — TRI-1 Nano
+# cocotb Makefile - Trinity Phi, TT SKY26d GF16 DOT4 (1x1)
 # Apache-2.0
 #
+# One pin-level test set (test/test.py) for RTL and for the gate-level netlist:
+#   RTL: make              GL (official gl_test action, CI): make -B GATES=yes
+# cocotb is pinned in test/requirements.txt (cocotb==2.0.1), the same version the official
+# gl_test action installs when that file exists.
+#
 # IMPORTANT: capture this Makefile's directory BEFORE the cocotb include,
-# because $(MAKEFILE_LIST) grows as cocotb-config includes its own makefiles
-# (then $(lastword …) points at cocotb internals instead of this file).
+# because $(MAKEFILE_LIST) grows as cocotb-config includes its own makefiles.
 MAKEFILE_DIR       := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
-SRC_DIR            := $(MAKEFILE_DIR)../src
+# SRC_DIR can be overridden (the mutation runner points it at a mutated temporary copy).
+SRC_DIR            ?= $(MAKEFILE_DIR)../src
 
 SIM                ?= icarus
 TOPLEVEL_LANG      ?= verilog
+# One source list: this must equal info.yaml source_files and the files the top really
+# instantiates (checked fail-closed by test/check_project.py).
 PROJECT_SOURCES     = tt_um_trinity_nano.v \
-                      gf16_mul.v \
-                      gf16_add.v \
-                      gf16_dot4.v \
-                      trinity_gf16_tile.v \
-                      trinity_friend_foe.v \
-                      sacred_constants_rom.v \
-                      crown47_rom.v \
-                      crown47_rom_8bit.v \
-                      phi_anchor_post.v \
-                      lucas_rom.v \
-                      hwrng_lfsr.v \
-                      restraint_ctrl.v \
-                      tri_token_accumulator.v \
-                      phi_d2d_lite.v \
-                      phi_mesh_bridge.v
+                      gf16_v2_mul.v \
+                      gf16_v2_add.v \
+                      gf16_sig_mul10.v
 
 ifneq ($(GATES),yes)
   SIM_BUILD         = sim_build/rtl
@@ -40,6 +35,8 @@ endif
 COMPILE_ARGS       += -I$(SRC_DIR)
 VERILOG_SOURCES    += $(MAKEFILE_DIR)tb.v
 TOPLEVEL            = tb
+# cocotb 2.x name, and the 1.x name for older runners
+COCOTB_TEST_MODULES = test
 MODULE              = test
 
 include $(shell cocotb-config --makefiles)/Makefile.sim

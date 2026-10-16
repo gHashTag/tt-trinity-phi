@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: Apache-2.0
+; gf16_dot4_addnorm_probe.t27 - measurement sidecar for issue #100: one extra official synthesis probe
+; Issue: https://github.com/gHashTag/tt-trinity-phi/issues/100 (draft PR #101). Written BEFORE the profiler code.
+; Status: measurement policy only. It is NOT a numeric contract and NOT a physical acceptance rule. The accepted
+; contract specs/numeric/gf16_dot4_sky26d.t27 is unchanged and stays the only DOT4 contract: exactly 8 enabled
+; clocks (E1..E8), GF16 S1E6M9 bias 31, MUL/ADD rounding, pins, reset, ena, READBACK, 1x1 at 20 ns.
+; Not executed: parse, typecheck and the test blocks below have not been run when this file was written.
+; Authors: Dmitrii Fedorov (@dmitrii-f-t27).
+; phi^2 + 1/phi^2 = 3 | TRINITY
+
+module physical-gf16_dot4_addnorm_probe;
+
+// ============================================================================
+// 1. What is measured
+// ============================================================================
+//
+// The official block profile (test/official_block_profile.py, gds.yaml step "Official block area profile")
+// gains ONE synthesis-only probe, add_norm14:
+//   DESIGN_NAME   gf16_add_norm14  (the module that ALREADY exists inside src/gf16_v2_add.v)
+//   VERILOG_FILES dir::gf16_v2_add.v  (the active file, unchanged; no new RTL module, no refactor)
+//   ports         input [13:0] x, output [13:0] norm, output [3:0] lz  (checked before the probe runs)
+// Every other config key is the official src/config_merged.json of the same SHA: same LibreLane 3.0.14,
+// PDK 8afc8346a57fe1ab7934ba5a6056ea8b43078e71, sky130_fd_sc_hd, cell exclusion union, filtered library,
+// SYNTH_STRATEGY, density and defines. Nothing is overridden. The flow stops at Yosys.Synthesis: no SDC, no
+// STA, no placement. The probe is not a timing, fit or GDS result.
+// The four existing probes (full, mul, add, storage) and the full calibration stay as they are.
+//
+// ============================================================================
+// 2. How the number may be read
+// ============================================================================
+//
+// The probe synthesises the normaliser alone, so it optimises across a different boundary than the adder.
+// It is NOT a share of the add probe: it must not be subtracted from add and must not be summed with any
+// other probe towards full. It is one measurement to choose a later area candidate, not a promised saving.
+//
+// ============================================================================
+// 3. Fail-closed rules (same as the existing probes)
+// ============================================================================
+//
+// The row is valid only if ALL hold: tool exit 0; exactly one synthesis step whose DESIGN_NAME is
+// gf16_add_norm14; every cell type is in the probe's own filtered library table with a finite positive area
+// (an unknown cell is a failure, never zero); weighted area equals stat and state area; provenance (config
+// keys, LibreLane version, Yosys creator, exclusion files, original and filtered library raw sha256) equals the
+// official run; the strategy equals the official one. The run as a whole passes only if the fresh full
+// calibration of the same SHA matches the official run (cells, area, per-type counts). Anything else is FAIL
+// with null values. A missing probe is reported as an explicit failed row, never left out of the report.
+//
+// ============================================================================
+// 4. Automatic checks of this sidecar and of the profiler (CI coverage policy, not acceptance)
+// ============================================================================
+//
+// spec-static job (test.yaml): runs test/test_official_block_profile.py (fixtures of the profiler) and
+// test/test_t27_addnorm_native_gate.py (fixtures of the adapter below). The numeric adapter test/t27_exec.py
+// stays bound to the numeric contract; it is not widened to accept this file.
+// t27-native job (test.yaml), AFTER the unchanged numeric gate test/t27_native_gate.py, with the same pinned
+// t27c, the same verified Zig and the same --t27-src/--t27-commit: test/t27_addnorm_native_gate.py on THIS file
+// only, output in its own folder native-addnorm. It requires:
+//   parse exit 0 with non-empty output; typecheck "0 errors, 0 warnings";
+//   test-report exit 0, not BLOCKED, exactly 2 tests (addnorm_probe_counts, addnorm_probe_fail_closed),
+//   pass 2, FAIL 0; an exit 0 without these counts is a failure;
+//   seal --save (never --force) and seal --verify "all hashes MATCH"; seal total 2, passed 2, failed 0, not
+//   forced, vacuous an integer 0..2, four real gen hashes, the pinned test-runner witness; no other seal file
+//   in the workspace changed;
+//   two negative controls, each changing ONE existing assertion of this file into a false one (the
+//   PROBE_COUNT constant assertion, and the all-ones probe_row_valid call assertion); each copy must
+//   parse and typecheck and then be DETECTED by test-report: exit 1 with FAIL >= 1, or BLOCKED because the
+//   generated Zig does not compile with "assertion failed". Any other outcome (missing tool, import or linker
+//   error, all green) fails the gate.
+// The adapter refuses the numeric spec and any other spec; it has no option to lower these expectations.
+//
+// ============================================================================
+// 5. Structural area candidate: zero operands at the ADD input (policy, written before the RTL change)
+// ============================================================================
+//
+// Acceptance is UNCHANGED: specs/numeric/gf16_dot4_sky26d.t27 (8 enabled clocks E1..E8, ADD exact RNE, every
+// special rule) and the unchanged oracle test/gf16_oracle.py decide; this section adds no numeric rule.
+// Measured so far (official BLOCK_PROFILE, isolated, non-additive): gf16_add_norm14 alone 62 cells,
+// 571.7984 um2. That number is NOT a saving and is not subtracted from anything. The saving of the candidate
+// below is NOT measured; it is decided only by the official full mapping and the physical flow.
+//
+// Change (only src/gf16_v2_add.v; gf16_add_norm14, the top, the MUL and every other file stay as they are):
+//   * the finite-zero flags are sorted with the operands by the same a_big compare: zero_hi, zero_lo;
+//   * the significand that enters the arithmetic is {not zero, M}: a finite zero gives significand 0, every
+//     finite nonzero code (also E = 0 with M > 0) keeps the hidden 1;
+//   * the far alignment (d >= 13) gives the jam bit "not zero_lo": 1 for a nonzero low operand as before,
+//     0 for a zero low operand;
+//   * the three output branches "zero and zero", "zero_a -> b", "zero_b -> a" are removed; NaN, Inf and
+//     Inf - Inf keep their priority in front of the arithmetic; no second full path stays behind a mux.
+// Equivalence boundaries (each class, a and b in either order, either zero sign):
+//   * NaN / Inf involved: the unchanged priority branches decide before any zero handling, as before;
+//   * two finite zeros: both significands 0, d = 0, the aligned low part is 0; with eff_sub the adder forms
+//     0 + (2^14 - 1) + 1 = 2^14, which is 0 in 14 bits; tsum = 0 gives +0 (old: zero and zero -> +0);
+//   * one finite zero x' and a finite nonzero x: x has the larger {E,M} field, so x is the high operand and
+//     the zero is the low one whatever the argument order; the aligned low part is 0 for every d (near: all
+//     shifted bits are 0, sticky 0; far: jam bit 0); the adder gives tsum = {0, 1, M, 000} for add AND for
+//     subtract (the two's complement of 0 wraps to 0), so the normaliser shifts by exactly 1, the guard and
+//     sticky bits are 0 (no rounding, no carry), eres = E + 1 - 1 = E, mant = M; E <= 62 never overflows and
+//     E = 0 with M > 0 is not flushed, so the result is {sign of x, E, M} = x bit for bit (old: passthrough
+//     of x). The sign of the zero does not reach the result;
+//   * two finite nonzero operands: both hidden bits 1, far jam 1: the arithmetic is the old one bit for bit.
+// Checks (written with the RTL change, run only by CI): a targeted sweep with the unchanged unit bench and
+// oracle, a = +0 and -0 against all 65536 codes, both argument orders (262144 vectors, including
+// 0x0000 + 0x0001), 0 mismatches; a negative control in a temporary copy (the low significand of a zero gets
+// the hidden 1 back) that must produce a real mismatch, in particular on 0x0000 + 0x0001; then the unchanged
+// full unit sweeps, pin tests and mutation controls.
+//
+// ============================================================================
+// 6. Structural candidate: the ADD significand sum on the existing full-adder wrapper (policy, before RTL)
+// ============================================================================
+//
+// Acceptance is UNCHANGED (numeric contract, oracle, 8 enabled clocks E1..E8, 1x1 at 20 ns). Facts before this
+// candidate (commit 74ab861, official): raw synthesis 1312 cells / 16777.3408 um2, first failure
+// 28-openroad-globalplacement GPL-0301 at 116.207 %, still a FAIL. The saving of THIS candidate is not measured;
+// the area of the wrapper cell (fa_1 20.0192 um2 in the filtered library) times a cell count is not a saving.
+//
+// The 74ab861 sum (src/gf16_v2_add.v before this candidate): sum15 = {1'b0, bext, 1'b1} + {smj_x, eff_sub}, tsum = sum15[14:1], with
+// X = {1'b0, bext} and Y = smj_x (14 bits each), c = eff_sub. The two 15-bit operands are 2X + 1 and 2Y + c, so
+// their sum is 2 (X + Y + c) + (1 - c): bit 0 is 1 - c and bits [15:1] hold X + Y + c. Keeping 15 bits keeps
+// bits [14:1], i.e. tsum = (X + Y + c) mod 2^14: bit 0 of the 15-bit addition only passes eff_sub as the
+// carry into the upper 14 bits, and the carry out of bit 13 is dropped, as before.
+// The candidate writes exactly this 14-bit sum as an explicit ripple chain with carry seed c = eff_sub:
+//   * constant bits of X: X[2:0] = 0 (the three guard zeros of bext) and X[13] = 0 (the leading zero);
+//     bits 0..2 have two variable inputs (Y[i] and the carry): half adder written as xor/and; bit 13 has two
+//     (Y[13] and the carry): xor, its carry out is dropped;
+//   * bits 3..12 have three variable inputs (X[i] = bext[i], which includes the hidden bit ~zero_hi at bit 12,
+//     Y[i], carry): one gf16_fa1 each, the wrapper of src/gf16_sig_mul10.v (generic logic in simulation, the
+//     fa_1 cell under __pnr__ / PHI_FA_PHYS); the wrapper itself is not changed;
+//   * nothing else changes: zero flags and their sort, alignment, far jam, gf16_add_norm14, RNE, packing and
+//     the special-value priority are the 74ab861 logic; no second full sum stays behind a multiplexer.
+// Checks (written with the RTL change, run only by CI):
+//   * generic branch: the targeted zero sweep (262144 vectors) and its hidden-1 control stay; a new
+//     deterministic adversarial set (cancellation, borrow, different signs, carry, ties, far jam, edge
+//     exponents, NaN / Inf, zeros, plus the ADD steps of the existing DOT4 conformance vectors) must give 0
+//     mismatches against the unchanged oracle, and a temporary copy with a wrong carry seed (0 instead of
+//     eff_sub) must give a real mismatch on two finite nonzero operands of different sign; the full unit
+//     sweeps, the 14 pin tests and the 18 mutation controls stay as they are;
+//   * technology branch (after Build GDS, real models of the pinned PDK, -DPHI_FA_PHYS): the old 8 truth
+//     cases, all 2^20 products and the swapped-output control stay; the active ADD is added with the zero
+//     set (262144) and the adversarial set, 0 mismatches, exact counts; the same wrong-seed copy must
+//     mismatch there too. A missing PDK model, tool, count or a non-zero exit is a FAIL. This is a model
+//     simulation, not STA, LVS or GDS.
+
+pub const PROBE_COUNT : u16 = 5;
+pub const NORM_X_WIDTH : u16 = 14;
+pub const NORM_LZ_WIDTH : u16 = 4;
+pub const PROBE_IS_ADDITIVE : u16 = 0;
+pub const PROBE_IS_FIT_PROOF : u16 = 0;
+
+// 1 only when every fail-closed condition of section 3 holds (each argument is 1 for "holds")
+pub fn probe_row_valid(tool_ok: u16, design_ok: u16, cells_known: u16, area_consistent: u16, provenance_same: u16, strategy_same: u16) u16 {
+    return tool_ok & design_ok & cells_known & area_consistent & provenance_same & strategy_same;
+}
+
+// The whole profile passes only with every row valid AND a matching fresh full calibration
+pub fn profile_pass(rows_valid: u16, calibration_ok: u16) u16 {
+    return rows_valid & calibration_ok;
+}
+
+test "addnorm_probe_counts" {
+    assert(PROBE_COUNT == 5);
+    assert(NORM_X_WIDTH == 14);
+    assert(NORM_LZ_WIDTH == 4);
+    assert(PROBE_IS_ADDITIVE == 0);
+    assert(PROBE_IS_FIT_PROOF == 0);
+}
+
+test "addnorm_probe_fail_closed" {
+    assert(probe_row_valid(1, 1, 1, 1, 1, 1) == 1);
+    assert(probe_row_valid(0, 1, 1, 1, 1, 1) == 0);
+    assert(probe_row_valid(1, 0, 1, 1, 1, 1) == 0);
+    assert(probe_row_valid(1, 1, 0, 1, 1, 1) == 0);
+    assert(probe_row_valid(1, 1, 1, 0, 1, 1) == 0);
+    assert(probe_row_valid(1, 1, 1, 1, 0, 1) == 0);
+    assert(probe_row_valid(1, 1, 1, 1, 1, 0) == 0);
+    assert(profile_pass(1, 1) == 1);
+    assert(profile_pass(1, 0) == 0);
+    assert(profile_pass(0, 1) == 0);
+}

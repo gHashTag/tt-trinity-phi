@@ -108,7 +108,8 @@ def main():
         tbp, outp = os.path.join(d, "tb.v"), os.path.join(d, "sim")
         open(tbp, "w").write(TB.format(nm1=n - 1, n=n, af=af, bf=bf))
         srcs = [os.path.join(SRC, x) for x in
-                ("gf16_add.v", "gf16_v2_add.v", "gf16_mul.v", "gf16_v2_mul.v")]
+                ("gf16_add.v", "gf16_v2_add.v", "gf16_mul.v", "gf16_v2_mul.v",
+                 "gf16_sig_mul10.v")]
         c = subprocess.run(["iverilog", "-g2012", "-o", outp, *srcs, tbp],
                            capture_output=True, text=True)
         if c.returncode != 0:

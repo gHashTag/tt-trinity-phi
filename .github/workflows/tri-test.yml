@@ -1,10 +1,8 @@
 name: t27 Format Validation
 
 on:
-  push:
-    branches: [main, master]
+  push:                 # every branch, so a feature-branch or fork push runs these checks too
   pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -23,13 +21,16 @@ jobs:
       - name: Check R-SI-1 (zero standalone * operators)
         run: |
           echo "=== R-SI-1: checking for forbidden arithmetic * operators ==="
-          # Grandfathered: gf16_mul.v (legacy GF16 Karatsuba mantissa product)
+          # Grandfathered ARCHIVAL files, unchanged since baseline 81f02d5 and NOT in the active
+          # design: gf16_mul.v (legacy GF16 Karatsuba mantissa product) and gf128_mul.v (legacy,
+          # line 43 holds a '*' full product). The 4 active files are not exempt: test/check_project.py
+          # and test/synth_audit.py (CI job spec-static / synth-audit) forbid any '*' there.
           # tb_*.v are simulation-only testbenches, not synthesisable RTL
           FAIL=0
           for f in src/*.v; do
             base=$(basename "$f")
             case "$base" in
-              gf16_mul.v|tb_*.v) continue ;;
+              gf16_mul.v|gf128_mul.v|tb_*.v) continue ;;
             esac
             # Strip line and block comments before scanning, then exclude:
             #   - `always @*` / `always @ ( * )` wildcard sensitivity
@@ -62,13 +63,17 @@ jobs:
             exit 1
           fi
 
-      - name: iverilog lint (Verilog-2005)
+      - name: iverilog compile check (Verilog-2005), compiler failure fails the job
         run: |
-          echo "=== iverilog -g2005 compile check ==="
-          iverilog -g2005 -y src \
+          set -euo pipefail
+          echo "=== iverilog -g2005 compile check of the active design ==="
+          # No pipe, no `|| true`: a compile error, an unknown module or a syntax error is a
+          # non-zero exit and fails this step. -y src resolves the instantiated sub-modules.
+          iverilog -g2005 -Wall -y src \
             src/tt_um_trinity_nano.v \
-            -o /dev/null 2>&1 | grep -v "^$" || true
-          echo "PASS: iverilog lint done"
+            -o "$RUNNER_TEMP/phi-top.vvp"
+          test -s "$RUNNER_TEMP/phi-top.vvp"
+          echo "compiled: iverilog exited 0 and produced the vvp file"
 
       - name: Verify top module name
         run: |

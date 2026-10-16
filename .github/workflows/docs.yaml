@@ -1,5 +1,8 @@
 name: docs
 
+# Official Tiny Tapeout SKY26d docs action, pinned to the commit that the annotated tag
+# TinyTapeout/tt-gds-action@ttsky26d dereferences to (see gds.yaml and test/check_project.py).
+
 on:
   push:
   workflow_dispatch:
@@ -14,5 +17,41 @@ jobs:
           submodules: recursive
 
       - name: Build docs
-        uses: TinyTapeout/tt-gds-action/docs@ttsky26a
+        uses: TinyTapeout/tt-gds-action/docs@395eedb3eeec3c2f4961c3b04ff2cf87f5525636 # ttsky26d
 
+  # Extra, optional-by-function check: it adds a visual preview of the datasheet and does not replace
+  # or weaken the official docs job above. It is fail-closed on its own: a missing PDF, zero pages
+  # or an empty page image fails this job, and no failure is masked.
+  docs-preview:
+    needs: docs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download the datasheet artifact produced by the official docs action
+        uses: actions/download-artifact@v4
+        with:
+          name: PDF
+          path: pdf-in
+
+      - name: Render every page to PNG
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          test -s pdf-in/datasheet.pdf
+          pdfinfo pdf-in/datasheet.pdf | tee pdfinfo.txt
+          pages=$(awk '/^Pages:/ {print $2}' pdfinfo.txt)
+          test -n "$pages" && test "$pages" -ge 1
+          mkdir -p docs-preview
+          pdftoppm -r 110 -png pdf-in/datasheet.pdf docs-preview/page
+          count=$(ls docs-preview/page-*.png | wc -l)
+          test "$count" -eq "$pages"
+          for f in docs-preview/page-*.png; do test -s "$f"; done
+          cp pdfinfo.txt docs-preview/pdfinfo.txt
+          ls -l docs-preview
+
+      - name: Upload the page images for a visual check
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocsPreview
+          path: docs-preview/
+          if-no-files-found: error

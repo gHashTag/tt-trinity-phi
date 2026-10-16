@@ -1,0 +1,568 @@
+// SPDX-License-Identifier: Apache-2.0
+; gf16_dot4_sky26d.t27 - GF16 DOT4 pin and arithmetic contract, 1x1 tile, sky130A, TT SKY26d
+; Issue: https://github.com/gHashTag/tt-trinity-phi/issues/100
+; Status: contract accepted for implementation (issue #100). It is a spec, written before RTL.
+; Checked statically at commit 325c9bc: t27c parse and typecheck pass. That check does not
+; execute the assertions. Execution of the assertions, the oracle and RTL results, and the
+; physical verdict (fit in 1x1, timing) are decided by the CI of the current commit, not by
+; this header. Not ready for submission.
+; Authors: Dmitrii Fedorov (@dmitrii-f-t27); original project author Dmitrii Vasilev.
+; License: Apache-2.0 (see SPDX line above).
+; Order of work: this spec was committed BEFORE any RTL, in commit 325c9bc. RTL, tests and CI
+; come in later commits (so "no RTL accompanies this file" was true only of 325c9bc).
+; Format: GF16 = [S(1) E(6) M(9)], bias 31, see conformance/FORMAT-SPEC-001.json.
+; This is an explicit SKY26d contract. It deliberately differs from the historical RTL
+; and from the legacy gf16.t27 (see section 8). The global t27 gf16.t27 is not changed.
+; phi^2 + 1/phi^2 = 3 | TRINITY
+
+module triformat-gf16_dot4;
+
+// ============================================================================
+// 1. Function
+// ============================================================================
+//
+// r = DOT4(A0..A3, B0..B3) over eight independently loaded 16-bit GF16 words.
+// Fixed order, every operation rounded to GF16 at once (no wider intermediate,
+// no FMA, no tree):
+//   p_k  = MUL(A_k, B_k)          k = 0..3
+//   acc0 = p_0                    (a transfer, no ADD)
+//   acc1 = ADD(acc0, p_1)
+//   acc2 = ADD(acc1, p_2)
+//   r    = ADD(acc2, p_3)
+// Hardware: one shared combinational MUL and one shared combinational ADD plus a
+// product register and an accumulator, sequenced by an FSM. Whether this fits one
+// 1x1 tile is UNKNOWN until a real GDS run says so.
+// Self-test: DOT4((1,2,3,4),(1,2,3,4)) = 30.0 = 0x47C0, every step exact.
+//
+// ============================================================================
+// 2. Arithmetic contract (exact; the independent oracle uses Fraction arithmetic)
+// ============================================================================
+//
+// Value of a finite nonzero code: (-1)^S * (1 + M/512) * 2^(E - 31), E in 0..62.
+// There are no subnormals: E = 0 with M != 0 is a NORMAL number. Smallest
+// positive code 0x0001 = (1 + 2^-9) * 2^-31. The value 2^-31 itself has no code.
+//
+// Zero:  E = 0 and M = 0, either sign, as an input.
+// Inf:   E = 63 and M = 0 (0x7E00, 0xFE00).
+// NaN:   E = 63 and M != 0, any sign and payload. Every NaN result is 0xFE01.
+//
+// Finite nonzero operands. Let q be the exact rational result (product or sum).
+//   1. q = 0 (zero operand times finite, exact cancellation, zero plus zero): +0.
+//   2. Otherwise take the sign of q, and the binade e with 2^e <= |q| < 2^(e+1)
+//      with NO lower or upper limit on e. Let x = |q| / 2^e * 512, in [512, 1024).
+//   3. Round x to an integer m_r in [512, 1024]:
+//        MUL: to nearest, a tie goes TOWARD ZERO (round up only if frac(x) > 1/2).
+//        ADD: to nearest, a tie goes to the EVEN m_r (exact round-to-nearest-even).
+//      If m_r = 1024 the result is binade e + 1 with m_r = 512.
+//   4. Biased exponent E = e + 31, mantissa M = m_r - 512. Then, in this order:
+//        E >= 63                       -> signed Inf (0x7E00 or 0xFE00)
+//        E < 0, or E = 0 and M = 0     -> +0   (underflow and the 2^-31 gap flush)
+//        otherwise                     -> the code {sign, E, M}
+//      No value is rounded onto the grid {0, 0x0001}; the flush is the rule.
+// Specials, all operations:
+//   MUL: any NaN operand -> NaN. Inf * zero -> NaN (zero checked after Inf).
+//        Inf * finite nonzero or Inf * Inf -> Inf with sign S_a xor S_b.
+//        zero * finite -> +0.
+//   ADD: any NaN operand -> NaN. Inf + (-Inf) -> NaN. Inf + Inf of equal sign
+//        -> that Inf. Inf + finite -> that Inf. zero + zero -> +0.
+//        zero + x -> x (a nonzero x is returned unchanged).
+// Rounding is NOT IEEE: no rounding-mode input, no flags, no subnormals, no
+// negative zero output. Zero operands -0 and +0 are the same input.
+// ZERO RESULT: every arithmetic result that is zero is +0 (0x0000). -0 (0x8000)
+// is never produced by any operation, so it never appears in RES_LO/RES_HI.
+// Memory and READBACK (select 5) are not arithmetic: they keep and return the
+// raw bytes the host wrote, so a written input 0x8000 reads back as 0x00 / 0x80.
+//
+// Names: the baseline files gf16_v2_mul.v and gf16_v2_add.v keep their names with
+// an honest comment that for SKY26d the ADD is corrected to exact round-to-nearest-
+// even and the zero results are canonical +0. The historical baseline 617c0fc is
+// frozen; nothing here claims the baseline ADD is unchanged.
+//
+// ============================================================================
+// 3. Pins (TT tile, all 8-bit buses)
+// ============================================================================
+//
+// uio is INPUT ONLY: uio_oe = 0x00, uio_out = 0x00 in every state.
+//   ui_in[7:0]   DATA byte for a write; in read select 5 only ui_in[3:0] is used
+//   uio_in[0]    WR    write strobe, acts on its rising edge
+//   uio_in[1]    GO    start strobe, acts on its rising edge
+//   uio_in[4:2]  RSEL  read select, see section 5
+//   uio_in[7:5]  reserved, ignored, host drives 0
+//   uo_out[7:0]  READ  combinational function of RSEL, ui_in[3:0] and state
+//   clk, rst_n   rst_n asynchronous, active low
+//   ena          0 freezes ALL state (memory, pointer, FSM, flags, edge history);
+//                outputs follow the frozen state. A strobe that is high when ena
+//                returns is an edge if its last ENABLED sample was low.
+// Rising edge = strobe high now and low at the previous enabled clock. Reset
+// clears the edge history to low, so a strobe held high through reset release is
+// an edge on the first enabled clock.
+//
+// ============================================================================
+// 4. Memory, write, start, busy
+// ============================================================================
+//
+// 16 byte cells, little endian words, reset to 0x00 (128 flip-flops with reset).
+// Pointer PTR is 4 bits, reset 0.
+//   PTR  0..7  : A0.lo A0.hi A1.lo A1.hi A2.lo A2.hi A3.lo A3.hi
+//   PTR  8..15 : B0.lo B0.hi B1.lo B1.hi B2.lo B2.hi B3.lo B3.hi
+//   PTR[3] = operand (0 A, 1 B), PTR[2:1] = lane, PTR[0] = 0 low byte, 1 high byte.
+// Accepted WR (idle): cell[PTR] <= DATA, PTR <= PTR + 1 modulo 16, DONE <= 0.
+//   A WR does not change the result register.
+// Accepted GO (idle): PTR <= 0, DONE <= 0, ERR <= 0, BUSY <= 1.
+// WR and GO rising on the same clock while idle: WR is accepted, GO is ignored
+//   and sets no flag. This priority is part of the contract and is tested.
+// BUSY: WR and GO rising edges are ignored (no write, no PTR move) and set ERR.
+// Latency: GO accepted at clock edge E0; steps run at E1..E8:
+//   E1 PROD<=MUL(A0,B0)   E2 ACC<=PROD
+//   E3 PROD<=MUL(A1,B1)   E4 ACC<=ADD(ACC,PROD)
+//   E5 PROD<=MUL(A2,B2)   E6 ACC<=ADD(ACC,PROD)
+//   E7 PROD<=MUL(A3,B3)   E8 ACC<=ADD(ACC,PROD), BUSY<=0, DONE<=1.
+//   Exactly 8 enabled clocks, no ADD with a zero. Hosts poll DONE; 8 is tested.
+// A partial load computes over the stored cells (zero for cells never written
+// since reset). There is NO "loaded" flag; the contract does not hide this.
+// Reset at any time returns every flop of this section to its reset value.
+//
+// ============================================================================
+// 5. Read map (RSEL = uio_in[4:2])
+// ============================================================================
+//   0 STATUS    {PTR[3:0], 0, ERR, DONE, BUSY}
+//   1 RES_LO    result[7:0]
+//   2 RES_HI    result[15:8]
+//   3 SIG_LO    0xC0
+//   4 SIG_HI    0x47
+//   5 READBACK  cell[ui_in[3:0]] (byte address 0..15), combinational
+//   6, 7        0x00
+// Result visibility: the result register is 0x0000 after reset and otherwise
+// holds the value of the last completed DOT4. RES_LO and RES_HI read 0x00 while
+// BUSY. An accepted WR sets DONE to 0 but leaves the result register unchanged,
+// so after one new byte RES_* still shows the OLD result and is STALE; the host
+// must use RES_* only when STATUS.DONE = 1. GO replaces the result at E8.
+// READBACK returns the stored byte at any time, also while BUSY. With WR and
+// RSEL = 5 together, READBACK shows the byte before the write; the write takes
+// effect at the clock edge.
+// SIG is a constant contract signature (the old reset anchor 0x47C0). It is NOT
+// a computed result and the pins do not show it after reset by themselves.
+//
+// ============================================================================
+// 6. Constants
+// ============================================================================
+
+pub const MEM_BYTES : u16 = 16;
+pub const PTR_MASK : u16 = 0x000F;
+pub const LATENCY_CLOCKS : u16 = 8;
+
+pub const UIO_OE_ALL : u16 = 0x0000;
+pub const UIO_OUT_ALL : u16 = 0x0000;
+pub const UIO_RESERVED_MASK : u16 = 0x00E0;
+
+pub const RSEL_STATUS : u16 = 0;
+pub const RSEL_RES_LO : u16 = 1;
+pub const RSEL_RES_HI : u16 = 2;
+pub const RSEL_SIG_LO : u16 = 3;
+pub const RSEL_SIG_HI : u16 = 4;
+pub const RSEL_READBACK : u16 = 5;
+
+pub const SIG_LO : u16 = 0x00C0;
+pub const SIG_HI : u16 = 0x0047;
+
+pub const GF16_ZERO_POS : u16 = 0x0000;
+pub const GF16_ZERO_NEG : u16 = 0x8000;
+pub const GF16_INF_POS : u16 = 0x7E00;
+pub const GF16_INF_NEG : u16 = 0xFE00;
+pub const GF16_NAN : u16 = 0xFE01;
+
+// Self-test operands 1.0 2.0 3.0 4.0 (A and B identical) and result 30.0
+pub const SELFTEST_X0 : u16 = 0x3E00;
+pub const SELFTEST_X1 : u16 = 0x4000;
+pub const SELFTEST_X2 : u16 = 0x4100;
+pub const SELFTEST_X3 : u16 = 0x4200;
+pub const SELFTEST_R : u16 = 0x47C0;
+
+// ============================================================================
+// 7. Pure pin and policy functions (all u16)
+// ============================================================================
+
+// Pins
+pub fn dot4_wr_bit(uio: u16) u16 {
+    return uio & 1;
+}
+
+pub fn dot4_go_bit(uio: u16) u16 {
+    return (uio >> 1) & 1;
+}
+
+pub fn dot4_rsel(uio: u16) u16 {
+    return (uio >> 2) & 7;
+}
+
+// Readback byte address, taken from ui_in[3:0]; ui_in[7:4] is ignored
+pub fn dot4_rb_addr(ui: u16) u16 {
+    return ui & 0x000F;
+}
+
+// Rising edge of a one-bit strobe: high now, low at the previous enabled clock
+pub fn dot4_rise(cur: u16, prev: u16) u16 {
+    return cur & (prev ^ 1);
+}
+
+// Memory map
+pub fn dot4_ptr_next(ptr: u16) u16 {
+    return (ptr + 1) & PTR_MASK;
+}
+
+pub fn dot4_ptr_operand(ptr: u16) u16 {
+    return (ptr >> 3) & 1;
+}
+
+pub fn dot4_ptr_lane(ptr: u16) u16 {
+    return (ptr >> 1) & 3;
+}
+
+pub fn dot4_ptr_hi(ptr: u16) u16 {
+    return ptr & 1;
+}
+
+// Status byte and read mux
+pub fn dot4_status(ptr: u16, err: u16, done: u16, busy: u16) u16 {
+    return ((ptr & PTR_MASK) << 4) | (err << 2) | (done << 1) | busy;
+}
+
+pub fn dot4_read_byte(rsel: u16, status: u16, result: u16, busy: u16, cell: u16) u16 {
+    if (rsel == RSEL_STATUS) {
+        return status & 0x00FF;
+    }
+    if (rsel == RSEL_RES_LO) {
+        if (busy != 0) {
+            return 0;
+        }
+        return result & 0x00FF;
+    }
+    if (rsel == RSEL_RES_HI) {
+        if (busy != 0) {
+            return 0;
+        }
+        return (result >> 8) & 0x00FF;
+    }
+    if (rsel == RSEL_SIG_LO) {
+        return SIG_LO;
+    }
+    if (rsel == RSEL_SIG_HI) {
+        return SIG_HI;
+    }
+    if (rsel == RSEL_READBACK) {
+        return cell & 0x00FF;
+    }
+    return 0;
+}
+
+// GF16 field and class helpers
+pub fn dot4_exp(x: u16) u16 {
+    return (x & 0x7E00) >> 9;
+}
+
+pub fn dot4_mant(x: u16) u16 {
+    return x & 0x01FF;
+}
+
+pub fn dot4_is_zero(x: u16) bool {
+    return (x & 0x7FFF) == 0;
+}
+
+pub fn dot4_is_inf(x: u16) bool {
+    return dot4_exp(x) == 63 and dot4_mant(x) == 0;
+}
+
+pub fn dot4_is_nan(x: u16) bool {
+    return dot4_exp(x) == 63 and dot4_mant(x) != 0;
+}
+
+// Zero policy, applied to the result of EVERY operation: any zero becomes +0
+pub fn dot4_canon_zero(x: u16) u16 {
+    if (dot4_is_zero(x)) {
+        return GF16_ZERO_POS;
+    }
+    return x;
+}
+
+// Rounding decisions on the discarded remainder rem against its half
+// MUL: a tie goes toward zero, so round up only strictly above half
+pub fn dot4_round_up_tz(rem: u16, half: u16) bool {
+    return rem > half;
+}
+
+// ADD: a tie goes to the even mantissa, lsb is the lowest kept bit
+pub fn dot4_round_up_rne(rem: u16, half: u16, lsb: u16) bool {
+    if (rem > half) {
+        return true;
+    }
+    if (rem == half and (lsb & 1) == 1) {
+        return true;
+    }
+    return false;
+}
+
+// Range decision after rounding, with the biased exponent split in two parts:
+// neg = 1 when E < 0, otherwise E in e. Underflow: E < 0, or E = 0 and M = 0
+pub fn dot4_is_underflow(neg: u16, e: u16, m: u16) bool {
+    if (neg != 0) {
+        return true;
+    }
+    return e == 0 and m == 0;
+}
+
+pub fn dot4_is_overflow(neg: u16, e: u16) bool {
+    return neg == 0 and e >= 63;
+}
+
+// MUL gives NaN for any NaN operand and for Inf * 0
+pub fn dot4_mul_is_nan(a: u16, b: u16) bool {
+    if (dot4_is_nan(a) or dot4_is_nan(b)) {
+        return true;
+    }
+    if (dot4_is_inf(a) and dot4_is_zero(b)) {
+        return true;
+    }
+    if (dot4_is_inf(b) and dot4_is_zero(a)) {
+        return true;
+    }
+    return false;
+}
+
+// ADD gives NaN for any NaN operand and for Inf + (-Inf)
+pub fn dot4_add_is_nan(a: u16, b: u16) bool {
+    if (dot4_is_nan(a) or dot4_is_nan(b)) {
+        return true;
+    }
+    if (dot4_is_inf(a) and dot4_is_inf(b) and ((a ^ b) & 0x8000) != 0) {
+        return true;
+    }
+    return false;
+}
+
+// ============================================================================
+// 8. Differences from the historical RTL and from the legacy gf16.t27
+// ============================================================================
+//
+// Column "baseline": the arithmetic rows (MUL, ADD, zero, Inf*0, cancellation, NaN)
+// describe the ARCHIVED, ISOLATED gf16_v2_mul.v / gf16_v2_add.v files at 617c0fc.
+// Those files are NOT instantiated by the old top, so they are not the working
+// arithmetic of the baseline top. The rows "DOT4 order", "pins after reset" and
+// "uio" describe the OLD TOP tt_um_trinity_nano (with the old gf16_dot4).
+// item                      baseline (see note above)     legacy gf16.t27            this contract
+// MUL rounding              nearest, tie to zero          encode: tie to zero        same as RTL
+// ADD rounding              faithful <= 1 ULP, ties-even  via encode: tie to zero    EXACT nearest, tie to even
+//                           with truncating alignment     (and f32 sum first)
+// zero * finite             +0 (sign dropped)             signed zero                +0
+// Inf * zero                NaN 0xFE01                    zero checked first: zero   NaN 0xFE01
+// ADD underflow / E0M0      signed zero (0x8000 possible) signed zero                +0
+// ADD zero + zero           +0                            signed (-0 + -0 = -0)      +0
+// exact cancellation        +0                            +0 (f32 sum)               +0
+// NaN code                  0xFE01                        0xFE01                     0xFE01
+// DOT4 order                tree (p0+p1)+(p2+p3)          none                       left fold, transfer first
+// pins after reset          0x47C0 on {uio_out,uo_out}    n/a                        status 0x00; 0x47C0 via RSEL 3/4
+// uio                       output, conflicts with input  n/a                        input only, uio_oe = 0
+// The legacy gf16.t27 inside this repository is older still and is neither
+// imported nor edited here. Full agreement with the global gf16.t27 is NOT
+// claimed. Old consumers of 0x47C0 on pins after reset are not promised.
+
+// ============================================================================
+// 9. TDD - Tests
+// ============================================================================
+
+test "dot4_uio_is_input_only" {
+    assert(UIO_OE_ALL == 0);
+    assert(UIO_OUT_ALL == 0);
+}
+
+test "dot4_reserved_bits_are_uio_7_5" {
+    assert(UIO_RESERVED_MASK == 0xE0);
+}
+
+test "dot4_pin_fields" {
+    assert(dot4_wr_bit(0x01) == 1);
+    assert(dot4_go_bit(0x01) == 0);
+    assert(dot4_go_bit(0x02) == 1);
+    assert(dot4_rsel(0x00) == RSEL_STATUS);
+    assert(dot4_rsel(0x04) == RSEL_RES_LO);
+    assert(dot4_rsel(0x08) == RSEL_RES_HI);
+    assert(dot4_rsel(0x0C) == RSEL_SIG_LO);
+    assert(dot4_rsel(0x10) == RSEL_SIG_HI);
+    assert(dot4_rsel(0x14) == RSEL_READBACK);
+    assert(dot4_rsel(0xE0) == 0);
+}
+
+test "dot4_readback_address_uses_low_nibble" {
+    assert(dot4_rb_addr(0x00) == 0);
+    assert(dot4_rb_addr(0x0F) == 15);
+    assert(dot4_rb_addr(0xF5) == 5);
+}
+
+test "dot4_rising_edge" {
+    assert(dot4_rise(1, 0) == 1);
+    assert(dot4_rise(1, 1) == 0);
+    assert(dot4_rise(0, 0) == 0);
+    assert(dot4_rise(0, 1) == 0);
+}
+
+test "dot4_pointer_wraps_at_16" {
+    assert(dot4_ptr_next(0) == 1);
+    assert(dot4_ptr_next(14) == 15);
+    assert(dot4_ptr_next(15) == 0);
+    assert(MEM_BYTES == 16);
+}
+
+test "dot4_memory_map" {
+    assert(dot4_ptr_operand(0) == 0);
+    assert(dot4_ptr_operand(7) == 0);
+    assert(dot4_ptr_operand(8) == 1);
+    assert(dot4_ptr_operand(15) == 1);
+    assert(dot4_ptr_lane(0) == 0);
+    assert(dot4_ptr_lane(5) == 2);
+    assert(dot4_ptr_lane(15) == 3);
+    assert(dot4_ptr_hi(6) == 0);
+    assert(dot4_ptr_hi(7) == 1);
+}
+
+test "dot4_status_byte" {
+    assert(dot4_status(0, 0, 0, 0) == 0x00);
+    assert(dot4_status(0, 0, 0, 1) == 0x01);
+    assert(dot4_status(0, 0, 1, 0) == 0x02);
+    assert(dot4_status(0, 1, 0, 0) == 0x04);
+    assert(dot4_status(15, 0, 1, 0) == 0xF2);
+    assert(dot4_status(9, 1, 0, 1) == 0x95);
+}
+
+test "dot4_read_map" {
+    assert(dot4_read_byte(RSEL_STATUS, 0x95, 0x47C0, 1, 0x00) == 0x95);
+    assert(dot4_read_byte(RSEL_RES_LO, 0x02, 0x47C0, 0, 0x00) == 0xC0);
+    assert(dot4_read_byte(RSEL_RES_HI, 0x02, 0x47C0, 0, 0x00) == 0x47);
+    assert(dot4_read_byte(RSEL_RES_LO, 0x01, 0x47C0, 1, 0x00) == 0);
+    assert(dot4_read_byte(RSEL_RES_HI, 0x01, 0x47C0, 1, 0x00) == 0);
+    assert(dot4_read_byte(RSEL_SIG_LO, 0, 0, 0, 0) == 0xC0);
+    assert(dot4_read_byte(RSEL_SIG_HI, 0, 0, 0, 0) == 0x47);
+    assert(dot4_read_byte(RSEL_READBACK, 0x01, 0x47C0, 1, 0xA5) == 0xA5);
+    assert(dot4_read_byte(6, 0xFF, 0xFFFF, 0, 0xFF) == 0);
+    assert(dot4_read_byte(7, 0xFF, 0xFFFF, 0, 0xFF) == 0);
+}
+
+test "dot4_signature_is_reset_anchor" {
+    assert(((SIG_HI << 8) | SIG_LO) == 0x47C0);
+    assert(SELFTEST_R == 0x47C0);
+}
+
+test "dot4_selftest_operand_fields" {
+    assert(dot4_exp(SELFTEST_X0) == 31);
+    assert(dot4_mant(SELFTEST_X0) == 0);
+    assert(dot4_exp(SELFTEST_X1) == 32);
+    assert(dot4_exp(SELFTEST_X2) == 32);
+    assert(dot4_mant(SELFTEST_X2) == 256);
+    assert(dot4_exp(SELFTEST_X3) == 33);
+    assert(dot4_mant(SELFTEST_X3) == 0);
+}
+
+test "dot4_selftest_result_is_30" {
+    // 30 = 1.875 * 2^4: E = 4 + 31 = 35, M = 0.875 * 512 = 448
+    assert(dot4_exp(SELFTEST_R) == 35);
+    assert(dot4_mant(SELFTEST_R) == 448);
+}
+
+test "dot4_zero_classes" {
+    assert(dot4_is_zero(0x0000));
+    assert(dot4_is_zero(0x8000));
+    assert(!dot4_is_zero(0x0001));
+    assert(!dot4_is_zero(0x8001));
+}
+
+test "dot4_no_subnormals_smallest_code" {
+    // E = 0, M != 0 is a normal number, not zero and not special
+    assert(!dot4_is_zero(0x0001));
+    assert(!dot4_is_inf(0x0001));
+    assert(!dot4_is_nan(0x0001));
+    assert(dot4_exp(0x0001) == 0);
+}
+
+test "dot4_special_classes" {
+    assert(dot4_is_inf(GF16_INF_POS));
+    assert(dot4_is_inf(GF16_INF_NEG));
+    assert(dot4_is_nan(GF16_NAN));
+    assert(dot4_is_nan(0x7E01));
+    assert(!dot4_is_nan(GF16_INF_POS));
+    assert(!dot4_is_inf(GF16_NAN));
+    assert(!dot4_is_inf(0x7DFF));
+}
+
+test "dot4_canon_zero" {
+    assert(dot4_canon_zero(0x8000) == 0x0000);
+    assert(dot4_canon_zero(0x0000) == 0x0000);
+    assert(dot4_canon_zero(0x8001) == 0x8001);
+    assert(dot4_canon_zero(GF16_INF_NEG) == GF16_INF_NEG);
+}
+
+test "dot4_mul_round_tie_goes_toward_zero" {
+    // 9 discarded bits (half = 256) or 10 discarded bits (half = 512)
+    assert(!dot4_round_up_tz(256, 256));
+    assert(dot4_round_up_tz(257, 256));
+    assert(!dot4_round_up_tz(255, 256));
+    assert(!dot4_round_up_tz(512, 512));
+    assert(dot4_round_up_tz(513, 512));
+}
+
+test "dot4_add_round_tie_goes_to_even" {
+    assert(dot4_round_up_rne(256, 256, 1));
+    assert(!dot4_round_up_rne(256, 256, 0));
+    assert(dot4_round_up_rne(257, 256, 0));
+    assert(!dot4_round_up_rne(255, 256, 1));
+}
+
+test "dot4_underflow_and_gap_flush" {
+    assert(dot4_is_underflow(1, 0, 0));
+    assert(dot4_is_underflow(1, 5, 7));
+    assert(dot4_is_underflow(0, 0, 0));
+    assert(!dot4_is_underflow(0, 0, 1));
+    assert(!dot4_is_underflow(0, 1, 0));
+}
+
+test "dot4_overflow_threshold" {
+    assert(dot4_is_overflow(0, 63));
+    assert(!dot4_is_overflow(0, 62));
+    assert(!dot4_is_overflow(1, 63));
+}
+
+test "dot4_mul_invalid_cases" {
+    assert(dot4_mul_is_nan(GF16_INF_POS, 0x0000));
+    assert(dot4_mul_is_nan(0x8000, GF16_INF_NEG));
+    assert(dot4_mul_is_nan(GF16_NAN, 0x3E00));
+    assert(!dot4_mul_is_nan(GF16_INF_POS, 0x3E00));
+    assert(!dot4_mul_is_nan(0x0000, 0x3E00));
+}
+
+test "dot4_add_invalid_cases" {
+    assert(dot4_add_is_nan(GF16_INF_POS, GF16_INF_NEG));
+    assert(dot4_add_is_nan(GF16_NAN, 0x3E00));
+    assert(!dot4_add_is_nan(GF16_INF_POS, GF16_INF_POS));
+    assert(!dot4_add_is_nan(GF16_INF_NEG, GF16_INF_NEG));
+    assert(!dot4_add_is_nan(GF16_INF_POS, 0x3E00));
+}
+
+test "dot4_latency_is_eight_clocks" {
+    assert(LATENCY_CLOCKS == 8);
+}
+
+// ============================================================================
+// 10. Invariants
+// ============================================================================
+
+invariant dot4_uio_input_only
+    assert UIO_OE_ALL == 0 and UIO_OUT_ALL == 0
+
+invariant dot4_signature_matches_selftest
+    assert ((SIG_HI << 8) | SIG_LO) == SELFTEST_R
+
+invariant dot4_read_map_total
+    assert dot4_read_byte(6, 0, 0, 0, 0) == 0 and dot4_read_byte(7, 0, 0, 0, 0) == 0
+
+invariant dot4_pointer_period_16
+    assert dot4_ptr_next(15) == 0 and MEM_BYTES == 16
+
+invariant dot4_mul_tie_is_not_rounded_up
+    assert dot4_round_up_tz(256, 256) == false

@@ -14,7 +14,13 @@ jobs:
 
       - name: Check for new * operators
         run: |
-          # Grandfathered: gf16_mul.v (legacy GF16 Karatsuba)
+          # Grandfathered ARCHIVAL files, unchanged since baseline 81f02d5 and NOT in the active
+          # design (info.yaml / test/Makefile / the top never instantiate them):
+          #   gf16_mul.v   (legacy GF16 Karatsuba)
+          #   gf128_mul.v  (legacy; line 43 holds a '*' full product, same text as at 81f02d5)
+          # The 4 ACTIVE files (tt_um_trinity_nano.v gf16_v2_mul.v gf16_v2_add.v gf16_sig_mul10.v)
+          # are NOT exempt and must contain no arithmetic '*' at all: test/check_project.py
+          # (fail-closed, CI job spec-static) and test/synth_audit.py ($mul) enforce that strictly.
           # R-SI-1: zero arithmetic * operators in synthesisable RTL
           # Whitelist:
           #   @(*) sensitivity lists
@@ -26,7 +32,7 @@ jobs:
           for f in src/*.v; do
             base=$(basename "$f")
             case "$base" in
-              gf16_mul.v|tb_*.v) continue ;;
+              gf16_mul.v|gf128_mul.v|tb_*.v) continue ;;
             esac
             HITS=$(sed 's://.*::; s:/\*[^*]*\*/::g' "$f" \
               | grep -n '\*' \
